@@ -1,22 +1,41 @@
-use crate::types::*;
+use crate::types::{TwitchMessage::*, *};
 
-pub fn handle_welcome(msg: Welcome, session: &mut Session) {
-    session.set_id(msg.payload.session.id.to_owned());
-    println!("Welcome received: {:#?}", msg);
+pub trait Handler
+where
+    Self: std::fmt::Debug,
+{
+    fn handle(&self, session: Option<&mut Session>) {
+        match session {
+            Some(session) => println!("Session: {:#?}", session),
+            None => {}
+        }
+        println!("Message received: {:#?}", self)
+    }
 }
 
-pub fn handle_keepalive(msg: Keepalive) {
-    println!("Keepalive received: {:#?}", msg);
+impl Handler for TwitchMessage {
+    fn handle(&self, session: Option<&mut Session>) {
+        match self {
+            WelcomeMessage(msg) => msg.handle(session),
+            KeepaliveMessage(msg) => msg.handle(None),
+            NotificationMessage(msg) => msg.handle(None),
+            RevocationMessage(msg) => msg.handle(None),
+            ReconnectMessage(msg) => msg.handle(None),
+        }
+    }
 }
 
-pub fn handle_notification(msg: Notification) {
-    println!("Notifiaction received: {:#?}", msg);
+impl Handler for Welcome {
+    fn handle(&self, session: Option<&mut Session>) {
+        if let Some(session) = session {
+            session.set_id(self.payload.session.id.to_owned());
+            println!("Welcome received: {:#?}", self);
+        } else {
+            panic!("Welcome message needs session!")
+        }
+    }
 }
-
-pub fn handle_reconnect(msg: Reconnect) {
-    println!("Notifiaction received: {:#?}", msg);
-}
-
-pub fn handle_revocation(msg: Revocation) {
-    println!("Notifiaction received: {:#?}", msg);
-}
+impl Handler for Keepalive {}
+impl Handler for Notification {}
+impl Handler for Revocation {}
+impl Handler for Reconnect {}

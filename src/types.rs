@@ -10,6 +10,7 @@ pub trait MessageFields {
     fn get_id(&self) -> String;
 }
 
+#[derive(Debug)]
 pub struct Session {
     socket: Socket,
     id: String,

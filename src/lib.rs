@@ -32,7 +32,6 @@ pub fn get_session() -> Session {
 fn parse_message(msg: &str) -> Result<TwitchMessage> {
     let parsed: Value = serde_json::from_str(msg)?;
     let msg_type = &parsed["metadata"]["message_type"];
-    println!("Message type: {}", msg_type);
 
     if msg_type == "session_welcome" {
         let welcome: Welcome = serde_json::from_str(msg)?;
@@ -75,16 +74,9 @@ pub fn event_handler(session: &mut Session) -> std::result::Result<(), Box<dyn s
             continue;
         }
 
-        match msg {
-            WelcomeMessage(msg) => handle_welcome(msg, session),
-            KeepaliveMessage(msg) => handle_keepalive(msg),
-            NotificationMessage(msg) => handle_notification(msg),
-            ReconnectMessage(msg) => handle_reconnect(msg),
-            RevocationMessage(msg) => handle_revocation(msg),
-        };
+        msg.handle(Some(session));
 
         session.handled().push(message_id.to_owned());
-        // return Ok(());
     }
 }
 
