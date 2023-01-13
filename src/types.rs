@@ -56,19 +56,19 @@ pub struct SessionData {
     pub id: String,
     status: String,
     connected_at: String,
-    keepalive_timeout_seconds: Number,
-    reconnect_url: Option<Value>,
+    keepalive_timeout_seconds: Option<Number>,
+    reconnect_url: Option<String>,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
-pub struct WelcomePayload {
+pub struct SessionPayload {
     pub session: SessionData,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct Welcome {
     metadata: GenericMetadata,
-    pub payload: WelcomePayload,
+    pub payload: SessionPayload,
 }
 
 impl MessageFields for Welcome {
@@ -129,12 +129,36 @@ impl MessageFields for Notification {
 }
 
 #[derive(Deserialize, Serialize, Debug)]
-pub struct Other {
+pub struct Reconnect {
+    metadata: GenericMetadata,
+    pub payload: SessionPayload,
+}
+
+impl MessageFields for Reconnect {
+    fn get_id(&self) -> String {
+        self.metadata.message_id.clone()
+    }
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct Revocation {
+    metadata: SubscriptionMetadata,
+    pub payload: SubscriptionPayload,
+}
+
+impl MessageFields for Revocation {
+    fn get_id(&self) -> String {
+        self.metadata.message_id.clone()
+    }
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct Close {
     metadata: GenericMetadata,
     pub payload: Value,
 }
 
-impl MessageFields for Other {
+impl MessageFields for Close {
     fn get_id(&self) -> String {
         self.metadata.message_id.clone()
     }
@@ -145,7 +169,9 @@ pub enum TwitchMessage {
     WelcomeMessage(Welcome),
     KeepaliveMessage(Keepalive),
     NotificationMessage(Notification),
-    OtherMessage(Other),
+    ReconnectMessage(Reconnect),
+    RevocationMessage(Revocation),
+    CloseMessage(Close),
 }
 
 impl MessageFields for TwitchMessage {
@@ -154,7 +180,9 @@ impl MessageFields for TwitchMessage {
             Self::WelcomeMessage(msg) => msg.get_id(),
             Self::KeepaliveMessage(msg) => msg.get_id(),
             Self::NotificationMessage(msg) => msg.get_id(),
-            Self::OtherMessage(msg) => msg.get_id(),
+            Self::ReconnectMessage(msg) => msg.get_id(),
+            Self::RevocationMessage(msg) => msg.get_id(),
+            Self::CloseMessage(msg) => msg.get_id(),
         }
     }
 }

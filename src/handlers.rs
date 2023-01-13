@@ -13,6 +13,10 @@ pub fn handle_notification(msg: Notification) {
     println!("Notifiaction received: {:#?}", msg);
 }
 
-pub fn handle_other(msg: Other) {
-    println!("Other received: {:#?}", msg);
+pub fn handle_reconnect(msg: Reconnect) {
+    println!("Notifiaction received: {:#?}", msg);
+}
+
+pub fn handle_revocation(msg: Revocation) {
+    println!("Notifiaction received: {:#?}", msg);
 }

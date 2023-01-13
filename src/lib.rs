@@ -31,7 +31,8 @@ pub fn get_session() -> Session {
 
 fn parse_message(msg: &str) -> Result<TwitchMessage> {
     let parsed: Value = serde_json::from_str(msg)?;
-    let msg_type = &parsed["message_type"];
+    let msg_type = &parsed["metadata"]["message_type"];
+    println!("Message type: {}", msg_type);
 
     if msg_type == "session_welcome" {
         let welcome: Welcome = serde_json::from_str(msg)?;
@@ -42,13 +43,19 @@ fn parse_message(msg: &str) -> Result<TwitchMessage> {
     } else if msg_type == "notification" {
         let welcome: Notification = serde_json::from_str(msg)?;
         return Ok(NotificationMessage(welcome));
+    } else if msg_type == "session_reconnect" {
+        let welcome: Reconnect = serde_json::from_str(msg)?;
+        return Ok(ReconnectMessage(welcome));
+    } else if msg_type == "revocation" {
+        let welcome: Revocation = serde_json::from_str(msg)?;
+        return Ok(RevocationMessage(welcome));
     } else {
-        let welcome: Other = serde_json::from_str(msg)?;
-        return Ok(OtherMessage(welcome));
+        let welcome: Close = serde_json::from_str(msg)?;
+        return Ok(CloseMessage(welcome));
     };
 }
 
-pub fn event_handler(session: &mut Session) -> Result<()> {
+pub fn event_handler(session: &mut Session) -> std::result::Result<(), String> {
     loop {
         let msg = session
             .socket()
@@ -76,11 +83,13 @@ pub fn event_handler(session: &mut Session) -> Result<()> {
             WelcomeMessage(msg) => handle_welcome(msg, session),
             KeepaliveMessage(msg) => handle_keepalive(msg),
             NotificationMessage(msg) => handle_notification(msg),
-            OtherMessage(msg) => handle_other(msg),
+            ReconnectMessage(msg) => handle_reconnect(msg),
+            RevocationMessage(msg) => handle_revocation(msg),
+            CloseMessage(msg) => return Err(format!("Close message received: {:#?}", msg)),
         };
 
         session.handled().push(message_id.to_owned());
-        return Ok(());
+        // return Ok(());
     }
 }
 
