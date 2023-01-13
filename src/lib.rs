@@ -1,23 +1,13 @@
-use json::{self, JsonValue};
+use serde_json::{Result, Value};
 use std::net::TcpStream;
-use tungstenite::{connect, stream::MaybeTlsStream, Message, WebSocket};
+use tungstenite::{connect, stream::MaybeTlsStream, WebSocket};
 use url::Url;
 
-pub struct Session {
-    socket: Socket,
-    id: String,
-    handled: Vec<String>,
-}
+use crate::handlers::*;
+use crate::types::{TwitchMessage::*, *};
 
-impl Session {
-    pub fn new(socket: Socket) -> Session {
-        Session {
-            socket,
-            id: String::new(),
-            handled: vec![],
-        }
-    }
-}
+mod handlers;
+mod types;
 
 pub type Socket = WebSocket<MaybeTlsStream<TcpStream>>;
 
@@ -39,62 +29,63 @@ pub fn get_session() -> Session {
     // ));
 }
 
-fn format_message(msg: Message) -> JsonValue {
-    let data = msg.to_text().unwrap();
-    let data = format!("[{}]", data);
-    json::parse(&data).unwrap()[0].to_owned()
-}
+fn parse_message(msg: &str) -> Result<TwitchMessage> {
+    let parsed: Value = serde_json::from_str(msg)?;
+    let msg_type = &parsed["message_type"];
 
-fn handle_welcome(msg: JsonValue, session: &mut Session) {
-    println!("Welcome!");
-    let id = &msg["payload"]["session"]["id"];
-    if !id.is_null() {
-        session.id = String::from(id.to_string());
+    if msg_type == "session_welcome" {
+        let welcome: Welcome = serde_json::from_str(msg)?;
+        return Ok(WelcomeMessage(welcome));
+    } else if msg_type == "session_keepalive" {
+        let welcome: Keepalive = serde_json::from_str(msg)?;
+        return Ok(KeepaliveMessage(welcome));
+    } else if msg_type == "notification" {
+        let welcome: Notification = serde_json::from_str(msg)?;
+        return Ok(NotificationMessage(welcome));
+    } else {
+        let welcome: Other = serde_json::from_str(msg)?;
+        return Ok(OtherMessage(welcome));
     };
 }
 
-fn handle_keepalive(msg: JsonValue) {
-    println!("Keepalive received: {}", msg);
-}
-
-fn handle_notification(msg: JsonValue) {
-    println!("Notifiaction received: {}", msg);
-}
-
-pub fn event_handler(session: &mut Session) {
+pub fn event_handler(session: &mut Session) -> Result<()> {
     loop {
         let msg = session
             .socket
             .read_message()
             .expect("Error reading message");
-        let parsed = format_message(msg);
-
-        if parsed.is_null() {
-            println!("Empty message: {}", parsed);
-            continue;
-        }
-
-        let metadata = &parsed["metadata"];
-        let msg_id = String::from(&metadata["message_id"].to_string());
-
-        if session.handled.contains(&msg_id) {
-            println!("Duplicate message: {}", parsed);
-            continue;
-        }
-
-        let msg_type = &metadata["message_type"];
-
-        if msg_type == "session_welcome" {
-            handle_welcome(parsed, session);
-        } else if msg_type == "session_keepalive" {
-            handle_keepalive(parsed);
-        } else if msg_type == "notification" {
-            handle_notification(parsed);
-        } else {
-            println!("Received message: {}", parsed);
+        let data = msg.to_text().unwrap();
+        let parsed: Value = match serde_json::from_str(&data) {
+            Ok(value) => value,
+            Err(_) => continue,
         };
 
-        session.handled.push(msg_id);
+        let message_id = match &parsed["metadata"]["message_id"] {
+            Value::String(message_id) => message_id,
+            _ => {
+                continue;
+            }
+        };
+
+        let msg = match parse_message(data) {
+            Ok(msg) => msg,
+            Err(_) => continue,
+        };
+
+        if session.handled.contains(&message_id) {
+            println!("Duplicate message: {:#?}", parsed);
+            continue;
+        }
+
+        match msg {
+            WelcomeMessage(msg) => handle_welcome(msg, session),
+            KeepaliveMessage(msg) => handle_keepalive(msg),
+            NotificationMessage(msg) => handle_notification(msg),
+            OtherMessage(msg) => handle_other(msg),
+        };
+
+        session.handled.push(message_id.to_owned());
+        return Ok(());
     }
 }
 
