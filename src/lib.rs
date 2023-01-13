@@ -51,7 +51,7 @@ fn parse_message(msg: &str) -> Result<TwitchMessage> {
 pub fn event_handler(session: &mut Session) -> Result<()> {
     loop {
         let msg = session
-            .socket
+            .socket()
             .read_message()
             .expect("Error reading message");
         let data = msg.to_text().unwrap();
@@ -60,19 +60,14 @@ pub fn event_handler(session: &mut Session) -> Result<()> {
             Err(_) => continue,
         };
 
-        let message_id = match &parsed["metadata"]["message_id"] {
-            Value::String(message_id) => message_id,
-            _ => {
-                continue;
-            }
-        };
-
         let msg = match parse_message(data) {
             Ok(msg) => msg,
             Err(_) => continue,
         };
 
-        if session.handled.contains(&message_id) {
+        let message_id = msg.get_id();
+
+        if session.handled().contains(&message_id) {
             println!("Duplicate message: {:#?}", parsed);
             continue;
         }
@@ -84,7 +79,7 @@ pub fn event_handler(session: &mut Session) -> Result<()> {
             OtherMessage(msg) => handle_other(msg),
         };
 
-        session.handled.push(message_id.to_owned());
+        session.handled().push(message_id.to_owned());
         return Ok(());
     }
 }

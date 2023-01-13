@@ -6,10 +6,32 @@ use tungstenite::{stream::MaybeTlsStream, WebSocket};
 
 pub type Socket = WebSocket<MaybeTlsStream<TcpStream>>;
 
+pub trait MessageFields {
+    fn get_id(&self) -> String;
+}
+
 pub struct Session {
-    pub socket: Socket,
-    pub id: String,
-    pub handled: Vec<String>,
+    socket: Socket,
+    id: String,
+    handled: Vec<String>,
+}
+
+impl Session {
+    pub fn socket(&mut self) -> &mut Socket {
+        &mut self.socket
+    }
+
+    pub fn id(&self) -> &String {
+        &self.id
+    }
+
+    pub fn handled(&mut self) -> &mut Vec<String> {
+        &mut self.handled
+    }
+
+    pub fn set_id(&mut self, id: String) {
+        self.id = id;
+    }
 }
 
 impl Session {
@@ -49,10 +71,22 @@ pub struct Welcome {
     pub payload: WelcomePayload,
 }
 
+impl MessageFields for Welcome {
+    fn get_id(&self) -> String {
+        self.metadata.message_id.clone()
+    }
+}
+
 #[derive(Deserialize, Serialize, Debug)]
 pub struct Keepalive {
     metadata: GenericMetadata,
     pub payload: Value,
+}
+
+impl MessageFields for Keepalive {
+    fn get_id(&self) -> String {
+        self.metadata.message_id.clone()
+    }
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -88,10 +122,22 @@ pub struct Notification {
     pub payload: NotificationPayload,
 }
 
+impl MessageFields for Notification {
+    fn get_id(&self) -> String {
+        self.metadata.message_id.clone()
+    }
+}
+
 #[derive(Deserialize, Serialize, Debug)]
 pub struct Other {
     metadata: GenericMetadata,
     pub payload: Value,
+}
+
+impl MessageFields for Other {
+    fn get_id(&self) -> String {
+        self.metadata.message_id.clone()
+    }
 }
 
 #[derive(Debug)]
@@ -100,4 +146,15 @@ pub enum TwitchMessage {
     KeepaliveMessage(Keepalive),
     NotificationMessage(Notification),
     OtherMessage(Other),
+}
+
+impl MessageFields for TwitchMessage {
+    fn get_id(&self) -> String {
+        match self {
+            Self::WelcomeMessage(msg) => msg.get_id(),
+            Self::KeepaliveMessage(msg) => msg.get_id(),
+            Self::NotificationMessage(msg) => msg.get_id(),
+            Self::OtherMessage(msg) => msg.get_id(),
+        }
+    }
 }

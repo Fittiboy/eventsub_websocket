@@ -1,7 +1,7 @@
 use crate::types::*;
 
 pub fn handle_welcome(msg: Welcome, session: &mut Session) {
-    session.id = msg.payload.session.id.to_owned();
+    session.set_id(msg.payload.session.id.to_owned());
     println!("Welcome received: {:#?}", msg);
 }
 
