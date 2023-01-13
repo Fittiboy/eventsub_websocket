@@ -50,24 +50,20 @@ fn parse_message(msg: &str) -> Result<TwitchMessage> {
         let welcome: Revocation = serde_json::from_str(msg)?;
         return Ok(RevocationMessage(welcome));
     } else {
-        let welcome: Close = serde_json::from_str(msg)?;
-        return Ok(CloseMessage(welcome));
+        panic!("This match arm should be unreachable!");
     };
 }
 
-pub fn event_handler(session: &mut Session) -> std::result::Result<(), String> {
+pub fn event_handler(session: &mut Session) -> std::result::Result<(), Box<dyn std::error::Error>> {
     loop {
-        let msg = session
-            .socket()
-            .read_message()
-            .expect("Error reading message");
-        let data = msg.to_text().unwrap();
-        let parsed: Value = match serde_json::from_str(&data) {
+        let msg = session.socket().read_message()?;
+        let msg = msg.to_text()?.to_owned();
+        let parsed: Value = match serde_json::from_str(&msg) {
             Ok(value) => value,
             Err(_) => continue,
         };
 
-        let msg = match parse_message(data) {
+        let msg = match parse_message(&msg) {
             Ok(msg) => msg,
             Err(_) => continue,
         };
@@ -85,7 +81,6 @@ pub fn event_handler(session: &mut Session) -> std::result::Result<(), String> {
             NotificationMessage(msg) => handle_notification(msg),
             ReconnectMessage(msg) => handle_reconnect(msg),
             RevocationMessage(msg) => handle_revocation(msg),
-            CloseMessage(msg) => return Err(format!("Close message received: {:#?}", msg)),
         };
 
         session.handled().push(message_id.to_owned());

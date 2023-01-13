@@ -152,18 +152,6 @@ impl MessageFields for Revocation {
     }
 }
 
-#[derive(Deserialize, Serialize, Debug)]
-pub struct Close {
-    metadata: GenericMetadata,
-    pub payload: Value,
-}
-
-impl MessageFields for Close {
-    fn get_id(&self) -> String {
-        self.metadata.message_id.clone()
-    }
-}
-
 #[derive(Debug)]
 pub enum TwitchMessage {
     WelcomeMessage(Welcome),
@@ -171,7 +159,6 @@ pub enum TwitchMessage {
     NotificationMessage(Notification),
     ReconnectMessage(Reconnect),
     RevocationMessage(Revocation),
-    CloseMessage(Close),
 }
 
 impl MessageFields for TwitchMessage {
@@ -182,7 +169,6 @@ impl MessageFields for TwitchMessage {
             Self::NotificationMessage(msg) => msg.get_id(),
             Self::ReconnectMessage(msg) => msg.get_id(),
             Self::RevocationMessage(msg) => msg.get_id(),
-            Self::CloseMessage(msg) => msg.get_id(),
         }
     }
 }
