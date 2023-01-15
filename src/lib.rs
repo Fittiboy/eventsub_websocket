@@ -16,17 +16,6 @@ pub fn get_session() -> Session {
         .expect("Cannot connect");
 
     Session::new(socket)
-
-    // let _ = socket.write_message(Message::Text(
-    //     r#"{
-    //     "action": "authenticate",
-    //     "data": {
-    //         "key_id": "API-KEY",
-    //         "secret_key": "SECRET-KEY"
-    //     }
-    // }"#
-    //     .into(),
-    // ));
 }
 
 fn parse_message(msg: &str) -> Result<TwitchMessage> {
