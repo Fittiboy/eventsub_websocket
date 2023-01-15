@@ -4,17 +4,18 @@ pub trait Handler
 where
     Self: std::fmt::Debug,
 {
-    fn handle(&self, session: Option<&mut Session>) {
+    fn handle(&self, session: Option<&mut Session>) -> Option<u64> {
         match session {
             Some(session) => println!("Session: {:#?}", session),
             None => {}
         }
-        println!("Message received: {:#?}", self)
+        println!("Message received: {:#?}", self);
+        None
     }
 }
 
 impl Handler for TwitchMessage {
-    fn handle(&self, session: Option<&mut Session>) {
+    fn handle(&self, session: Option<&mut Session>) -> Option<u64> {
         match self {
             WelcomeMessage(msg) => msg.handle(session),
             KeepaliveMessage(msg) => msg.handle(None),
@@ -26,12 +27,14 @@ impl Handler for TwitchMessage {
 }
 
 impl Handler for Welcome {
-    fn handle(&self, session: Option<&mut Session>) {
+    fn handle(&self, session: Option<&mut Session>) -> Option<u64> {
         if let Some(session) = session {
             session.set_id(self.payload.session.id.to_owned());
             println!("Welcome received: {:#?}", self);
             if let Some(time) = &self.payload.session.keepalive_timeout_seconds {
-                session.set_keepalive(time.as_u64().unwrap());
+                let time = time.as_u64().unwrap();
+                session.set_keepalive(time);
+                return Some(time);
             } else {
                 panic!("Twitch did not return a keepalive time!");
             };
