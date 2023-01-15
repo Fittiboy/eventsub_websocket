@@ -44,7 +44,10 @@ fn parse_message(msg: &str) -> Result<TwitchMessage> {
 
 pub fn event_handler(session: &mut Session) -> std::result::Result<(), Box<dyn std::error::Error>> {
     loop {
-        let msg = session.socket().read_message()?;
+        let msg = session
+            .socket()
+            .read_message()
+            .expect("Connection closed due to timeout!");
         let msg = msg.to_text()?.to_owned();
         let parsed: Value = match serde_json::from_str(&msg) {
             Ok(value) => value,
