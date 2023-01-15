@@ -1,4 +1,6 @@
-use crate::types::{TwitchMessage::*, *};
+use crate::types::{
+    Keepalive, Notification, Reconnect, Revocation, Session, TwitchMessage, Welcome,
+};
 
 pub trait Handler
 where
@@ -7,20 +9,19 @@ where
     fn handle(&self, session: Option<&mut Session>) {
         match session {
             Some(session) => println!("Session: {:#?}", session),
-            None => {}
+            None => println!("Message received: {:#?}", self),
         }
-        println!("Message received: {:#?}", self);
     }
 }
 
 impl Handler for TwitchMessage {
     fn handle(&self, session: Option<&mut Session>) {
         match self {
-            WelcomeMessage(msg) => msg.handle(session),
-            KeepaliveMessage(msg) => msg.handle(None),
-            NotificationMessage(msg) => msg.handle(None),
-            RevocationMessage(msg) => msg.handle(None),
-            ReconnectMessage(msg) => msg.handle(None),
+            TwitchMessage::Welcome(msg) => msg.handle(session),
+            TwitchMessage::Keepalive(msg) => msg.handle(None),
+            TwitchMessage::Notification(msg) => msg.handle(None),
+            TwitchMessage::Revocation(msg) => msg.handle(None),
+            TwitchMessage::Reconnect(msg) => msg.handle(None),
         }
     }
 }

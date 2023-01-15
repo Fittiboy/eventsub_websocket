@@ -4,7 +4,9 @@ use tungstenite::{connect, stream::MaybeTlsStream, WebSocket};
 use url::Url;
 
 use crate::handlers::*;
-use crate::types::{TwitchMessage::*, *};
+use crate::types::{
+    Keepalive, MessageFields, Notification, Reconnect, Revocation, Session, TwitchMessage, Welcome,
+};
 
 mod handlers;
 mod types;
@@ -24,22 +26,22 @@ fn parse_message(msg: &str) -> Result<TwitchMessage> {
 
     if msg_type == "session_welcome" {
         let welcome: Welcome = serde_json::from_str(msg)?;
-        return Ok(WelcomeMessage(welcome));
+        Ok(TwitchMessage::Welcome(welcome))
     } else if msg_type == "session_keepalive" {
         let welcome: Keepalive = serde_json::from_str(msg)?;
-        return Ok(KeepaliveMessage(welcome));
+        Ok(TwitchMessage::Keepalive(welcome))
     } else if msg_type == "notification" {
         let welcome: Notification = serde_json::from_str(msg)?;
-        return Ok(NotificationMessage(welcome));
+        Ok(TwitchMessage::Notification(welcome))
     } else if msg_type == "session_reconnect" {
         let welcome: Reconnect = serde_json::from_str(msg)?;
-        return Ok(ReconnectMessage(welcome));
+        Ok(TwitchMessage::Reconnect(welcome))
     } else if msg_type == "revocation" {
         let welcome: Revocation = serde_json::from_str(msg)?;
-        return Ok(RevocationMessage(welcome));
+        Ok(TwitchMessage::Revocation(welcome))
     } else {
-        panic!("This match arm should be unreachable!");
-    };
+        panic!("This match arm should be unreachable!")
+    }
 }
 
 pub fn event_handler(session: &mut Session) -> std::result::Result<(), Box<dyn std::error::Error>> {

@@ -168,21 +168,21 @@ impl MessageFields for Revocation {
 
 #[derive(Debug)]
 pub enum TwitchMessage {
-    WelcomeMessage(Welcome),
-    KeepaliveMessage(Keepalive),
-    NotificationMessage(Notification),
-    ReconnectMessage(Reconnect),
-    RevocationMessage(Revocation),
+    Welcome(Welcome),
+    Keepalive(Keepalive),
+    Notification(Notification),
+    Reconnect(Reconnect),
+    Revocation(Revocation),
 }
 
 impl MessageFields for TwitchMessage {
     fn get_id(&self) -> String {
         match self {
-            Self::WelcomeMessage(msg) => msg.get_id(),
-            Self::KeepaliveMessage(msg) => msg.get_id(),
-            Self::NotificationMessage(msg) => msg.get_id(),
-            Self::ReconnectMessage(msg) => msg.get_id(),
-            Self::RevocationMessage(msg) => msg.get_id(),
+            Self::Welcome(msg) => msg.get_id(),
+            Self::Keepalive(msg) => msg.get_id(),
+            Self::Notification(msg) => msg.get_id(),
+            Self::Reconnect(msg) => msg.get_id(),
+            Self::Revocation(msg) => msg.get_id(),
         }
     }
 }
