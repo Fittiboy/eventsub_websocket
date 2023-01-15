@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Number;
 use serde_json::Value;
 use std::net::TcpStream;
+use std::time::Duration;
 use tungstenite::{stream::MaybeTlsStream, WebSocket};
 
 pub type Socket = WebSocket<MaybeTlsStream<TcpStream>>;
@@ -15,7 +16,6 @@ pub struct Session {
     socket: Socket,
     id: String,
     handled: Vec<String>,
-    keepalive: u64,
 }
 
 impl Session {
@@ -36,7 +36,15 @@ impl Session {
     }
 
     pub fn set_keepalive(&mut self, keepalive: u64) {
-        self.keepalive = keepalive;
+        match self.socket().get_mut() {
+            MaybeTlsStream::NativeTls(stream) => {
+                let stream = stream.get_mut();
+                stream
+                    .set_read_timeout(Some(Duration::from_secs(keepalive + 1)))
+                    .unwrap();
+            }
+            _ => unreachable!(),
+        }
     }
 }
 
@@ -46,7 +54,6 @@ impl Session {
             socket,
             id: String::new(),
             handled: vec![],
-            keepalive: 0,
         }
     }
 }

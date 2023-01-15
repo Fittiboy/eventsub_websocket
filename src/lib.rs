@@ -1,7 +1,5 @@
 use serde_json::{Result, Value};
 use std::net::TcpStream;
-use std::thread;
-use std::time::Duration;
 use tungstenite::{connect, stream::MaybeTlsStream, WebSocket};
 use url::Url;
 
@@ -45,7 +43,6 @@ fn parse_message(msg: &str) -> Result<TwitchMessage> {
 }
 
 pub fn event_handler(session: &mut Session) -> std::result::Result<(), Box<dyn std::error::Error>> {
-    let mut keepalive_handle: thread::JoinHandle<()>;
     loop {
         let msg = session.socket().read_message()?;
         let msg = msg.to_text()?.to_owned();
@@ -66,14 +63,7 @@ pub fn event_handler(session: &mut Session) -> std::result::Result<(), Box<dyn s
             continue;
         }
 
-        match msg.handle(Some(session)) {
-            Some(keepalive) => {
-                keepalive_handle = thread::spawn(move || {
-                    thread::sleep(Duration::from_secs(keepalive - 1));
-                });
-            }
-            None => {}
-        }
+        msg.handle(Some(session));
 
         session.handled().push(message_id.to_owned());
     }
