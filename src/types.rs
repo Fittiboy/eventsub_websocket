@@ -15,6 +15,7 @@ pub struct Session {
     socket: Socket,
     id: String,
     handled: Vec<String>,
+    keepalive: u64,
 }
 
 impl Session {
@@ -33,6 +34,10 @@ impl Session {
     pub fn set_id(&mut self, id: String) {
         self.id = id;
     }
+
+    pub fn set_keepalive(&mut self, keepalive: u64) {
+        self.keepalive = keepalive;
+    }
 }
 
 impl Session {
@@ -41,6 +46,7 @@ impl Session {
             socket,
             id: String::new(),
             handled: vec![],
+            keepalive: 0,
         }
     }
 }
@@ -57,7 +63,7 @@ pub struct SessionData {
     pub id: String,
     status: String,
     connected_at: String,
-    keepalive_timeout_seconds: Option<Number>,
+    pub keepalive_timeout_seconds: Option<Number>,
     reconnect_url: Option<String>,
 }
 

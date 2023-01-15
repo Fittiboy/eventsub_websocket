@@ -30,9 +30,14 @@ impl Handler for Welcome {
         if let Some(session) = session {
             session.set_id(self.payload.session.id.to_owned());
             println!("Welcome received: {:#?}", self);
+            if let Some(time) = &self.payload.session.keepalive_timeout_seconds {
+                session.set_keepalive(time.as_u64().unwrap());
+            } else {
+                panic!("Twitch did not return a keepalive time!");
+            };
         } else {
-            panic!("Welcome message needs session!")
-        }
+            panic!("Welcome message needs session!");
+        };
     }
 }
 impl Handler for Keepalive {}
