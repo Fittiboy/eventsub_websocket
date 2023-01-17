@@ -38,7 +38,7 @@ pub fn event_handler(
 
         tx.send(msg_raw).unwrap();
 
-        let message_id = msg.get_id();
+        let message_id = msg.id();
 
         if session.handled().contains(&message_id) {
             println!("Duplicate message: {:#?}", msg);

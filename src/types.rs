@@ -8,7 +8,7 @@ use tungstenite::{stream::MaybeTlsStream, WebSocket};
 pub type Socket = WebSocket<MaybeTlsStream<TcpStream>>;
 
 pub trait MessageFields {
-    fn get_id(&self) -> String;
+    fn id(&self) -> String;
 }
 
 #[derive(Debug)]
@@ -104,13 +104,17 @@ pub struct Welcome {
 }
 
 impl Welcome {
-    pub fn payload(&self) -> &SessionPayload {
-        &self.payload
+    pub fn session_id(&self) -> &str {
+        &self.payload.session.id
+    }
+
+    pub fn keepalive(&self) -> &Option<Number> {
+        &self.payload.session.keepalive_timeout_seconds
     }
 }
 
 impl MessageFields for Welcome {
-    fn get_id(&self) -> String {
+    fn id(&self) -> String {
         self.metadata.message_id.clone()
     }
 }
@@ -128,7 +132,7 @@ impl Keepalive {
 }
 
 impl MessageFields for Keepalive {
-    fn get_id(&self) -> String {
+    fn id(&self) -> String {
         self.metadata.message_id.clone()
     }
 }
@@ -179,7 +183,7 @@ impl Notification {
 }
 
 impl MessageFields for Notification {
-    fn get_id(&self) -> String {
+    fn id(&self) -> String {
         self.metadata.message_id.clone()
     }
 }
@@ -197,7 +201,7 @@ impl Reconnect {
 }
 
 impl MessageFields for Reconnect {
-    fn get_id(&self) -> String {
+    fn id(&self) -> String {
         self.metadata.message_id.clone()
     }
 }
@@ -215,7 +219,7 @@ impl Revocation {
 }
 
 impl MessageFields for Revocation {
-    fn get_id(&self) -> String {
+    fn id(&self) -> String {
         self.metadata.message_id.clone()
     }
 }
@@ -231,13 +235,13 @@ pub enum TwitchMessage {
 }
 
 impl MessageFields for TwitchMessage {
-    fn get_id(&self) -> String {
+    fn id(&self) -> String {
         match self {
-            Self::Welcome(msg) => msg.get_id(),
-            Self::Keepalive(msg) => msg.get_id(),
-            Self::Notification(msg) => msg.get_id(),
-            Self::Reconnect(msg) => msg.get_id(),
-            Self::Revocation(msg) => msg.get_id(),
+            Self::Welcome(msg) => msg.id(),
+            Self::Keepalive(msg) => msg.id(),
+            Self::Notification(msg) => msg.id(),
+            Self::Reconnect(msg) => msg.id(),
+            Self::Revocation(msg) => msg.id(),
         }
     }
 }
