@@ -29,9 +29,9 @@ impl Handler for TwitchMessage {
 impl Handler for Welcome {
     fn handle(&self, session: Option<&mut Session>) {
         if let Some(session) = session {
-            session.set_id(self.payload.session.id.to_owned());
+            session.set_id(self.payload().session().id().to_string());
             println!("Welcome received: {:#?}", self);
-            if let Some(time) = &self.payload.session.keepalive_timeout_seconds {
+            if let Some(time) = &self.payload().session().keepalive() {
                 session.set_keepalive(time.as_u64().unwrap());
             } else {
                 panic!("Twitch did not return a keepalive time!");

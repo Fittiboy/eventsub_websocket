@@ -40,6 +40,8 @@ impl Session {
             MaybeTlsStream::NativeTls(stream) => {
                 let stream = stream.get_mut();
                 stream
+                    // Allow a short grace period by adding one second to the reported keepalive
+                    // timeout
                     .set_read_timeout(Some(Duration::from_secs(keepalive + 1)))
                     .unwrap();
             }
@@ -67,22 +69,44 @@ pub struct GenericMetadata {
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct SessionData {
-    pub id: String,
+    id: String,
     status: String,
     connected_at: String,
-    pub keepalive_timeout_seconds: Option<Number>,
+    keepalive_timeout_seconds: Option<Number>,
     reconnect_url: Option<String>,
+}
+
+impl SessionData {
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+
+    pub fn keepalive(&self) -> &Option<Number> {
+        &self.keepalive_timeout_seconds
+    }
 }
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct SessionPayload {
-    pub session: SessionData,
+    session: SessionData,
+}
+
+impl SessionPayload {
+    pub fn session(&self) -> &SessionData {
+        &self.session
+    }
 }
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct Welcome {
     metadata: GenericMetadata,
-    pub payload: SessionPayload,
+    payload: SessionPayload,
+}
+
+impl Welcome {
+    pub fn payload(&self) -> &SessionPayload {
+        &self.payload
+    }
 }
 
 impl MessageFields for Welcome {
@@ -94,7 +118,13 @@ impl MessageFields for Welcome {
 #[derive(Deserialize, Serialize, Debug)]
 pub struct Keepalive {
     metadata: GenericMetadata,
-    pub payload: Value,
+    payload: Value,
+}
+
+impl Keepalive {
+    pub fn payload(&self) -> &Value {
+        &self.payload
+    }
 }
 
 impl MessageFields for Keepalive {
@@ -114,7 +144,7 @@ pub struct SubscriptionMetadata {
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct SubscriptionPayload {
-    pub id: String,
+    id: String,
     status: String,
     r#type: String,
     version: String,
@@ -122,6 +152,12 @@ pub struct SubscriptionPayload {
     condition: Value,
     transport: Value,
     created_at: String,
+}
+
+impl SubscriptionPayload {
+    pub fn id(&self) -> &str {
+        &self.id
+    }
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -133,7 +169,13 @@ pub struct NotificationPayload {
 #[derive(Deserialize, Serialize, Debug)]
 pub struct Notification {
     metadata: SubscriptionMetadata,
-    pub payload: NotificationPayload,
+    payload: NotificationPayload,
+}
+
+impl Notification {
+    pub fn payload(&self) -> &NotificationPayload {
+        &self.payload
+    }
 }
 
 impl MessageFields for Notification {
@@ -145,7 +187,13 @@ impl MessageFields for Notification {
 #[derive(Deserialize, Serialize, Debug)]
 pub struct Reconnect {
     metadata: GenericMetadata,
-    pub payload: SessionPayload,
+    payload: SessionPayload,
+}
+
+impl Reconnect {
+    pub fn payload(&self) -> &SessionPayload {
+        &self.payload
+    }
 }
 
 impl MessageFields for Reconnect {
@@ -157,7 +205,13 @@ impl MessageFields for Reconnect {
 #[derive(Deserialize, Serialize, Debug)]
 pub struct Revocation {
     metadata: SubscriptionMetadata,
-    pub payload: SubscriptionPayload,
+    payload: SubscriptionPayload,
+}
+
+impl Revocation {
+    pub fn payload(&self) -> &SubscriptionPayload {
+        &self.payload
+    }
 }
 
 impl MessageFields for Revocation {
