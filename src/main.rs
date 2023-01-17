@@ -1,5 +1,5 @@
 use eventsub_websocket::types::TwitchMessage;
-use eventsub_websocket::{event_handler, get_session};
+use eventsub_websocket::{event_handler, get_session, parse_message};
 use std::sync::mpsc;
 use std::thread;
 
@@ -14,7 +14,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         });
     loop {
         let msg = rx.recv().unwrap();
-        let msg: TwitchMessage = eventsub_websocket::parse_message(&msg).unwrap();
+        let msg: TwitchMessage = parse_message(&msg).unwrap();
         println!("Handling message locally: {:#?}", msg);
     }
 }
