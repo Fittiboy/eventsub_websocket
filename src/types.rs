@@ -35,18 +35,18 @@ impl Session {
         self.id = id;
     }
 
-    pub fn set_keepalive(&mut self, keepalive: u64) {
+    pub fn set_keepalive(&mut self, keepalive: u64) -> Result<(), std::io::Error> {
         match self.socket().get_mut() {
             MaybeTlsStream::NativeTls(stream) => {
                 let stream = stream.get_mut();
                 stream
                     // Allow a short grace period by adding one second to the reported keepalive
                     // timeout
-                    .set_read_timeout(Some(Duration::from_secs(keepalive + 1)))
-                    .unwrap();
+                    .set_read_timeout(Some(Duration::from_secs(keepalive + 1)))?;
             }
             _ => unreachable!(),
         }
+        Ok(())
     }
 }
 

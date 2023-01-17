@@ -1,7 +1,15 @@
 use crate::types::{Session, TwitchMessage, Welcome};
+use std::io;
 
+#[derive(Debug)]
 pub enum HandlerErr {
     Welcome(WelcomeHandlerErr),
+}
+
+impl From<WelcomeHandlerErr> for HandlerErr {
+    fn from(err: WelcomeHandlerErr) -> Self {
+        HandlerErr::Welcome(err)
+    }
 }
 
 pub trait Handler
@@ -14,19 +22,25 @@ where
 impl Handler for TwitchMessage {
     fn handle(&self, session: Option<&mut Session>) -> Result<(), HandlerErr> {
         match self {
-            TwitchMessage::Welcome(msg) => {
-                msg.handle(session).map_err(|err| HandlerErr::Welcome(err))
-            }
+            TwitchMessage::Welcome(msg) => Ok(msg.handle(session)?),
             TwitchMessage::Reconnect(msg) => todo!("{:#?}", msg),
             _ => Ok(()),
         }
     }
 }
 
+#[derive(Debug)]
 pub enum WelcomeHandlerErr {
     NoKeepalive(String),
     InvalidKeepalive(String),
     NoSession(String),
+    CannotSetKeepalive(io::Error),
+}
+
+impl From<io::Error> for WelcomeHandlerErr {
+    fn from(err: io::Error) -> Self {
+        WelcomeHandlerErr::CannotSetKeepalive(err)
+    }
 }
 
 impl Welcome {
@@ -36,7 +50,7 @@ impl Welcome {
             if let Some(time) = &self.keepalive() {
                 let keepalive = time.as_u64();
                 match keepalive {
-                    Some(time) => session.set_keepalive(time),
+                    Some(time) => session.set_keepalive(time)?,
                     None => {
                         return Err(WelcomeHandlerErr::InvalidKeepalive(format!(
                             "invalid keepalive time received: {}",
