@@ -166,7 +166,8 @@ impl MessageFields for Revocation {
     }
 }
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(untagged)]
 pub enum TwitchMessage {
     Welcome(Welcome),
     Keepalive(Keepalive),
