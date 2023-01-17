@@ -14,7 +14,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         });
     loop {
         let msg = rx.recv().unwrap();
-        let msg: TwitchMessage = serde_json::from_str(&msg).unwrap();
+        let msg: TwitchMessage = eventsub_websocket::parse_message(&msg).unwrap();
         println!("Handling message locally: {:#?}", msg);
     }
 }
