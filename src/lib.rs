@@ -6,6 +6,8 @@ use url::Url;
 use crate::handlers::*;
 use crate::types::{MessageFields, Session, TwitchMessage};
 
+pub use serde_json::from_str as parse_message;
+
 pub mod handlers;
 pub mod types;
 
