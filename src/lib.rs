@@ -8,8 +8,8 @@ use crate::types::{
     Keepalive, MessageFields, Notification, Reconnect, Revocation, Session, TwitchMessage, Welcome,
 };
 
-mod handlers;
-mod types;
+pub mod handlers;
+pub mod types;
 
 pub type Socket = WebSocket<MaybeTlsStream<TcpStream>>;
 
