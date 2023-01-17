@@ -1,12 +1,9 @@
-use serde_json::{Result, Value};
 use std::net::TcpStream;
 use tungstenite::{connect, stream::MaybeTlsStream, WebSocket};
 use url::Url;
 
 use crate::handlers::*;
-use crate::types::{
-    Keepalive, MessageFields, Notification, Reconnect, Revocation, Session, TwitchMessage, Welcome,
-};
+use crate::types::{MessageFields, Session, TwitchMessage};
 
 pub mod handlers;
 pub mod types;
@@ -20,24 +17,15 @@ pub fn get_session() -> Session {
     Session::new(socket)
 }
 
-fn parse_message(msg: &str) -> Result<TwitchMessage> {
-    let msg: TwitchMessage = serde_json::from_str(msg)?;
-    return Ok(msg);
-}
-
 pub fn event_handler(session: &mut Session) -> std::result::Result<(), Box<dyn std::error::Error>> {
     loop {
         let msg = session
             .socket()
             .read_message()
             .expect("Connection closed due to timeout!");
-        let msg = msg.to_text()?.to_owned();
-        let parsed: Value = match serde_json::from_str(&msg) {
-            Ok(value) => value,
-            Err(_) => continue,
-        };
 
-        let msg = match parse_message(&msg) {
+        let msg = msg.to_text()?.to_owned();
+        let msg: TwitchMessage = match serde_json::from_str(&msg) {
             Ok(msg) => msg,
             Err(_) => continue,
         };
@@ -45,7 +33,7 @@ pub fn event_handler(session: &mut Session) -> std::result::Result<(), Box<dyn s
         let message_id = msg.get_id();
 
         if session.handled().contains(&message_id) {
-            println!("Duplicate message: {:#?}", parsed);
+            println!("Duplicate message: {:#?}", msg);
             continue;
         }
 
