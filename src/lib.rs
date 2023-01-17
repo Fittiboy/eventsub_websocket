@@ -1,4 +1,5 @@
 use std::net::TcpStream;
+use std::sync::mpsc::Sender;
 use tungstenite::{connect, stream::MaybeTlsStream, WebSocket};
 use url::Url;
 
@@ -17,18 +18,23 @@ pub fn get_session() -> Session {
     Session::new(socket)
 }
 
-pub fn event_handler(session: &mut Session) -> std::result::Result<(), Box<dyn std::error::Error>> {
+pub fn event_handler(
+    session: &mut Session,
+    tx: Sender<String>,
+) -> std::result::Result<(), Box<dyn std::error::Error>> {
     loop {
         let msg = session
             .socket()
             .read_message()
             .expect("Connection closed due to timeout!");
 
-        let msg = msg.to_text()?.to_owned();
-        let msg: TwitchMessage = match serde_json::from_str(&msg) {
+        let msg_raw = msg.to_text()?.to_owned();
+        let msg: TwitchMessage = match serde_json::from_str(&msg_raw) {
             Ok(msg) => msg,
             Err(_) => continue,
         };
+
+        tx.send(msg_raw).unwrap();
 
         let message_id = msg.get_id();
 
