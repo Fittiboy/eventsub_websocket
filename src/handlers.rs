@@ -29,7 +29,6 @@ impl Handler for TwitchMessage {
 impl Handler for Welcome {
     fn handle(&self, session: Option<&mut Session>) {
         if let Some(session) = session {
-            println!("{}", serd_string);
             session.set_id(self.payload().session().id().to_string());
             println!("Welcome received: {:#?}", self);
             if let Some(time) = &self.payload().session().keepalive() {
