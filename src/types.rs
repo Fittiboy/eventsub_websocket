@@ -23,10 +23,6 @@ impl Session {
         &mut self.socket
     }
 
-    pub fn id(&self) -> &String {
-        &self.id
-    }
-
     pub fn handled(&mut self) -> &mut Vec<String> {
         &mut self.handled
     }
@@ -67,39 +63,37 @@ pub struct GenericMetadata {
 }
 
 #[derive(Deserialize, Serialize, Debug)]
-pub struct SessionData {
+pub struct WelcomeSessionData {
+    id: String,
+    status: String,
+    connected_at: String,
+    keepalive_timeout_seconds: Number,
+    reconnect_url: Option<String>,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct ReconnectSessionData {
     id: String,
     status: String,
     connected_at: String,
     keepalive_timeout_seconds: Option<Number>,
-    reconnect_url: Option<String>,
-}
-
-impl SessionData {
-    pub fn id(&self) -> &str {
-        &self.id
-    }
-
-    pub fn keepalive(&self) -> &Option<Number> {
-        &self.keepalive_timeout_seconds
-    }
+    reconnect_url: String,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
-pub struct SessionPayload {
-    session: SessionData,
+pub struct WelcomeSessionPayload {
+    session: WelcomeSessionData,
 }
 
-impl SessionPayload {
-    pub fn session(&self) -> &SessionData {
-        &self.session
-    }
+#[derive(Deserialize, Serialize, Debug)]
+pub struct ReconnectSessionPayload {
+    session: ReconnectSessionData,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct Welcome {
     metadata: GenericMetadata,
-    payload: SessionPayload,
+    payload: WelcomeSessionPayload,
 }
 
 impl Welcome {
@@ -107,7 +101,7 @@ impl Welcome {
         &self.payload.session.id
     }
 
-    pub fn keepalive(&self) -> &Option<Number> {
+    pub fn keepalive(&self) -> &Number {
         &self.payload.session.keepalive_timeout_seconds
     }
 }
@@ -122,12 +116,6 @@ impl MessageFields for Welcome {
 pub struct Keepalive {
     metadata: GenericMetadata,
     payload: Value,
-}
-
-impl Keepalive {
-    pub fn payload(&self) -> &Value {
-        &self.payload
-    }
 }
 
 impl MessageFields for Keepalive {
@@ -157,12 +145,6 @@ pub struct SubscriptionPayload {
     created_at: String,
 }
 
-impl SubscriptionPayload {
-    pub fn id(&self) -> &str {
-        &self.id
-    }
-}
-
 #[derive(Deserialize, Serialize, Debug)]
 pub struct NotificationPayload {
     subscription: SubscriptionPayload,
@@ -190,12 +172,12 @@ impl MessageFields for Notification {
 #[derive(Deserialize, Serialize, Debug)]
 pub struct Reconnect {
     metadata: GenericMetadata,
-    payload: SessionPayload,
+    payload: ReconnectSessionPayload,
 }
 
 impl Reconnect {
-    pub fn payload(&self) -> &SessionPayload {
-        &self.payload
+    pub fn reconnect_url(&self) -> &String {
+        &self.payload.session.reconnect_url
     }
 }
 
@@ -211,12 +193,6 @@ pub struct Revocation {
     payload: SubscriptionPayload,
 }
 
-impl Revocation {
-    pub fn payload(&self) -> &SubscriptionPayload {
-        &self.payload
-    }
-}
-
 impl MessageFields for Revocation {
     fn id(&self) -> String {
         self.metadata.message_id.clone()
@@ -226,11 +202,11 @@ impl MessageFields for Revocation {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(untagged)]
 pub enum TwitchMessage {
-    Welcome(Welcome),
-    Keepalive(Keepalive),
     Notification(Notification),
+    Welcome(Welcome),
     Reconnect(Reconnect),
     Revocation(Revocation),
+    Keepalive(Keepalive),
 }
 
 impl MessageFields for TwitchMessage {

@@ -105,7 +105,7 @@ pub fn event_handler(
             continue;
         }
 
-        msg.handle(Some(session))?;
+        msg.handle(Some(session), tx.clone())?;
 
         tx.send(msg)?;
 
@@ -139,7 +139,33 @@ mod tests {
             let msg: TwitchMessage = rx.recv().map_err(|err| format!("{}", err)).unwrap();
             match msg {
                 TwitchMessage::Welcome(_) => {
-                    break;
+                    return ();
+                }
+                _ => {}
+            }
+        }
+    }
+
+    #[test]
+    fn handle_reconnect_message() {
+        let mut welcome_count = 0;
+        let (tx, rx): (Sender<TwitchMessage>, Receiver<TwitchMessage>) = mpsc::channel();
+        let mut session = get_session(Some("ws://localhost:8080/eventsub")).unwrap();
+        let _ =
+            thread::Builder::new()
+                .name("handler".into())
+                .spawn(move || -> Result<(), String> {
+                    event_handler(&mut session, tx).unwrap();
+                    Ok(())
+                });
+        loop {
+            let msg: TwitchMessage = rx.recv().map_err(|err| format!("{}", err)).unwrap();
+            match msg {
+                TwitchMessage::Welcome(_) => {
+                    welcome_count += 1;
+                    if welcome_count > 1 {
+                        return ();
+                    }
                 }
                 _ => {}
             }
