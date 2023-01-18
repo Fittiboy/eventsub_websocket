@@ -125,7 +125,7 @@ impl Reconnect {
         };
 
         let url = self.reconnect_url();
-        let mut new_session = crate::get_session(Some(&url))
+        let mut new_session = crate::get_session(Some(url))
             .map_err(|err| ReconnectHandlerErr::Session(err.to_string()))?;
 
         loop {
@@ -143,10 +143,7 @@ impl Reconnect {
                 continue;
             }
 
-            let is_welcome: bool = match msg {
-                TwitchMessage::Welcome(_) => true,
-                _ => false,
-            };
+            let is_welcome: bool = matches!(msg, TwitchMessage::Welcome(_));
 
             match msg.handle(Some(&mut new_session), tx.clone()) {
                 Ok(_) => {}
