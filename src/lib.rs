@@ -50,6 +50,8 @@ pub enum EventSubErr {
     Sending(SendError<TwitchMessage>),
 }
 
+impl std::error::Error for EventSubErr {}
+
 impl std::fmt::Display for EventSubErr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         write!(f, "{:#?}", self)
