@@ -31,8 +31,14 @@ impl From<tungstenite::Error> for SessionErr {
     }
 }
 
-pub fn get_session() -> Result<Session, EventSubErr> {
-    let (socket, _) = connect(Url::parse("wss://eventsub-beta.wss.twitch.tv/ws")?)?;
+pub fn get_session(url: Option<&str>) -> Result<Session, EventSubErr> {
+    let to_parse;
+    if let Some(url) = url {
+        to_parse = url;
+    } else {
+        to_parse = "wss://eventsub-beta.wss.twitch.tv/ws";
+    }
+    let (socket, _) = connect(Url::parse(to_parse)?)?;
     Ok(Session::new(socket))
 }
 
@@ -41,7 +47,7 @@ pub enum EventSubErr {
     GeneralHandler(HandlerErr),
     Socket(tungstenite::Error),
     Session(SessionErr),
-    Sending(SendError<String>),
+    Sending(SendError<TwitchMessage>),
 }
 
 impl std::fmt::Display for EventSubErr {
@@ -74,15 +80,15 @@ impl From<tungstenite::Error> for EventSubErr {
     }
 }
 
-impl From<SendError<String>> for EventSubErr {
-    fn from(err: SendError<String>) -> Self {
+impl From<SendError<TwitchMessage>> for EventSubErr {
+    fn from(err: SendError<TwitchMessage>) -> Self {
         EventSubErr::Sending(err)
     }
 }
 
 pub fn event_handler(
     session: &mut Session,
-    tx: Sender<String>,
+    tx: Sender<TwitchMessage>,
 ) -> std::result::Result<(), EventSubErr> {
     loop {
         let msg = session.socket().read_message()?;
@@ -91,8 +97,6 @@ pub fn event_handler(
             Ok(msg) => msg,
             Err(_) => continue,
         };
-
-        tx.send(msg_raw)?;
 
         let message_id = msg.id();
 
@@ -103,9 +107,42 @@ pub fn event_handler(
 
         msg.handle(Some(session))?;
 
+        tx.send(msg)?;
+
         session.handled().push(message_id.to_owned());
     }
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use super::*;
+    use std::sync::mpsc::{self, Receiver, Sender};
+    use std::thread;
+
+    #[test]
+    fn connect_to_mock() {
+        get_session(Some("ws://localhost:8080/eventsub")).unwrap();
+    }
+
+    #[test]
+    fn handle_welcome_message() {
+        let (tx, rx): (Sender<TwitchMessage>, Receiver<TwitchMessage>) = mpsc::channel();
+        let mut session = get_session(Some("ws://localhost:8080/eventsub")).unwrap();
+        let _ =
+            thread::Builder::new()
+                .name("handler".into())
+                .spawn(move || -> Result<(), String> {
+                    event_handler(&mut session, tx).unwrap();
+                    Ok(())
+                });
+        loop {
+            let msg: TwitchMessage = rx.recv().map_err(|err| format!("{}", err)).unwrap();
+            match msg {
+                TwitchMessage::Welcome(_) => {
+                    break;
+                }
+                _ => {}
+            }
+        }
+    }
+}
