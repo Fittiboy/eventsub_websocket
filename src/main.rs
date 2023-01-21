@@ -3,7 +3,7 @@ use eventsub_websocket::{event_handler, get_session};
 use std::sync::mpsc;
 use std::thread;
 
-fn main() -> Result<(), String> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (tx, rx) = mpsc::channel();
     let mut session = get_session(None)?;
     let _ = thread::Builder::new()

@@ -1,10 +1,13 @@
 use crate::types::{MessageFields, Reconnect, Session, TwitchMessage, Welcome};
 use std::io;
 use std::sync::mpsc::{SendError, Sender};
+use thiserror::Error;
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum HandlerErr {
+    #[error("error handling welcome message: {0}")]
     Welcome(WelcomeHandlerErr),
+    #[error("error handling erconnect message: {0}")]
     Reconnect(ReconnectHandlerErr),
 }
 
@@ -17,12 +20,6 @@ impl From<WelcomeHandlerErr> for HandlerErr {
 impl From<ReconnectHandlerErr> for HandlerErr {
     fn from(err: ReconnectHandlerErr) -> Self {
         HandlerErr::Reconnect(err)
-    }
-}
-
-impl std::fmt::Display for HandlerErr {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(f, "{:#?}", self)
     }
 }
 
@@ -51,11 +48,15 @@ impl Handler for TwitchMessage {
     }
 }
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum WelcomeHandlerErr {
+    #[error("Twitch did not return a keepalive: {0}")]
     NoKeepalive(String),
+    #[error("Twitch returned an invalid keepalive: {0}")]
     InvalidKeepalive(String),
+    #[error("no session was provided: {0}")]
     NoSession(String),
+    #[error("error when setting keepalive: {0}")]
     CannotSetKeepalive(io::Error),
 }
 
@@ -88,10 +89,13 @@ impl Welcome {
     }
 }
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum ReconnectHandlerErr {
+    #[error("session error while reconnecting: {0}")]
     Session(String),
+    #[error("general error while reconnecting: {0}")]
     Handler(String),
+    #[error("connection error while reconnecting: {0}")]
     Connection(tungstenite::Error),
 }
 
@@ -121,7 +125,11 @@ impl Reconnect {
     ) -> Result<(), ReconnectHandlerErr> {
         let old_session = match session {
             Some(session) => session,
-            None => panic!("reconnect handler always needs session"),
+            None => {
+                return Err(ReconnectHandlerErr::Session(
+                    "reconnect handler always needs session".to_owned(),
+                ))
+            }
         };
 
         let url = self.reconnect_url();

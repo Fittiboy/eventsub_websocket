@@ -1,5 +1,6 @@
 use std::net::TcpStream;
 use std::sync::mpsc::{SendError, Sender};
+use thiserror::Error;
 use tungstenite::{connect, stream::MaybeTlsStream, WebSocket};
 use url::{ParseError, Url};
 
@@ -13,9 +14,11 @@ pub mod types;
 
 pub type Socket = WebSocket<MaybeTlsStream<TcpStream>>;
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum SessionErr {
+    #[error("error parsing url: {0}")]
     Parse(ParseError),
+    #[error("connection error: {0}")]
     Connect(tungstenite::Error),
 }
 
@@ -42,20 +45,16 @@ pub fn get_session(url: Option<&str>) -> Result<Session, EventSubErr> {
     Ok(Session::new(socket))
 }
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum EventSubErr {
+    #[error("general handler error: {0}")]
     GeneralHandler(HandlerErr),
+    #[error("socket error: {0}")]
     Socket(tungstenite::Error),
+    #[error("session error: {0}")]
     Session(SessionErr),
+    #[error("error sending through channel: {0}")]
     Sending(SendError<TwitchMessage>),
-}
-
-impl std::error::Error for EventSubErr {}
-
-impl std::fmt::Display for EventSubErr {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(f, "{:#?}", self)
-    }
 }
 
 impl From<EventSubErr> for String {
