@@ -100,6 +100,8 @@ pub enum EventSubErr {
     Session(SessionErr),
     #[error("error sending through channel: {0}")]
     Sending(SendError<TwitchMessage>),
+    #[error("error creating listener thread: {0}")]
+    Thread(io::Error),
 }
 
 impl From<EventSubErr> for String {
@@ -129,5 +131,11 @@ impl From<tungstenite::Error> for EventSubErr {
 impl From<SendError<TwitchMessage>> for EventSubErr {
     fn from(err: SendError<TwitchMessage>) -> Self {
         EventSubErr::Sending(err)
+    }
+}
+
+impl From<io::Error> for EventSubErr {
+    fn from(err: io::Error) -> Self {
+        EventSubErr::Thread(err)
     }
 }

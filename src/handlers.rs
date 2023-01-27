@@ -1,4 +1,5 @@
 use crate::handlers::error::*;
+use crate::listen_loop;
 use crate::types::{Reconnect, Session, TwitchMessage, Welcome};
 use std::sync::mpsc::Sender;
 
@@ -60,68 +61,11 @@ impl Reconnect {
         let mut new_session = crate::get_session(Some(url))
             .map_err(|err| ReconnectHandlerErr::Session(err.to_string()))?;
 
-        loop {
-            let msg = new_session.socket.read_message()?;
-            let msg_raw = msg.to_text()?.to_owned();
-            let msg: TwitchMessage = match serde_json::from_str(&msg_raw) {
-                Ok(msg) => msg,
-                Err(_) => continue,
-            };
+        listen_loop(&mut new_session, tx, true, false)
+            .map_err(|err| ReconnectHandlerErr::Handler(err.to_string()))?;
 
-            let message_id = msg.id();
-
-            if new_session.handled.contains(&message_id) {
-                println!("Duplicate message: {:#?}", msg);
-                continue;
-            }
-
-            let is_welcome: bool = matches!(msg, TwitchMessage::Welcome(_));
-
-            match msg.handle(Some(&mut new_session), tx) {
-                Ok(_) => {}
-                Err(err) => match err {
-                    HandlerErr::Welcome(err) => match err {
-                        WelcomeHandlerErr::NoKeepalive(_) => {}
-                        _ => return Err(HandlerErr::from(err).into()),
-                    },
-                    _ => return Err(err.into()),
-                },
-            };
-
-            tx.send(msg)?;
-
-            new_session.handled.push(message_id.to_owned());
-
-            if is_welcome {
-                break;
-            };
-        }
-
-        loop {
-            let msg = match old_session.socket.read_message() {
-                Ok(msg) => msg,
-                Err(_) => break,
-            };
-            old_session.socket.close(None)?;
-            let msg_raw = msg.to_text()?.to_owned();
-            let msg: TwitchMessage = match serde_json::from_str(&msg_raw) {
-                Ok(msg) => msg,
-                Err(_) => continue,
-            };
-
-            let message_id = msg.id();
-
-            if old_session.handled.contains(&message_id) {
-                println!("Duplicate message: {:#?}", msg);
-                continue;
-            }
-
-            msg.handle(Some(old_session), tx)?;
-
-            tx.send(msg)?;
-
-            old_session.handled.push(message_id.to_owned());
-        }
+        listen_loop(old_session, tx, false, true)
+            .map_err(|err| ReconnectHandlerErr::Handler(err.to_string()))?;
 
         *old_session = new_session;
         Ok(())
