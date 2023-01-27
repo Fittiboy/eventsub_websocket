@@ -132,6 +132,8 @@ impl Session {
         }
     }
 
+    /// Sets the timeout on the `Session`'s contained `Socket` to match the keepalive time returned
+    /// by Twitch in a `Welcome` message. Adds an extra second as a grace period.
     pub fn set_keepalive(&mut self, keepalive: u64) -> Result<(), std::io::Error> {
         let stream = match self.socket.get_mut() {
             MaybeTlsStream::NativeTls(stream) => stream.get_mut(),
@@ -168,48 +170,14 @@ impl Reconnect {
     }
 }
 
-pub trait MessageId {
-    fn id(&self) -> String;
-}
-
-impl MessageId for Welcome {
-    fn id(&self) -> String {
-        self.metadata.message_id.clone()
-    }
-}
-
-impl MessageId for Keepalive {
-    fn id(&self) -> String {
-        self.metadata.message_id.clone()
-    }
-}
-
-impl MessageId for Notification {
-    fn id(&self) -> String {
-        self.metadata.message_id.clone()
-    }
-}
-
-impl MessageId for Reconnect {
-    fn id(&self) -> String {
-        self.metadata.message_id.clone()
-    }
-}
-
-impl MessageId for Revocation {
-    fn id(&self) -> String {
-        self.metadata.message_id.clone()
-    }
-}
-
-impl MessageId for TwitchMessage {
-    fn id(&self) -> String {
+impl TwitchMessage {
+    pub fn id(&self) -> String {
         match self {
-            Self::Welcome(msg) => msg.id(),
-            Self::Keepalive(msg) => msg.id(),
-            Self::Notification(msg) => msg.id(),
-            Self::Reconnect(msg) => msg.id(),
-            Self::Revocation(msg) => msg.id(),
+            Self::Welcome(msg) => msg.metadata.message_id.clone(),
+            Self::Keepalive(msg) => msg.metadata.message_id.clone(),
+            Self::Notification(msg) => msg.metadata.message_id.clone(),
+            Self::Reconnect(msg) => msg.metadata.message_id.clone(),
+            Self::Revocation(msg) => msg.metadata.message_id.clone(),
         }
     }
 }
