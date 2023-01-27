@@ -194,6 +194,11 @@ mod tests {
                                 reason: "Closing after reconnect test.".into(),
                             }))
                             .unwrap();
+                    }
+                }
+                TwitchMessage::Keepalive(_) => {
+                    if welcome_count >= 2 {
+                        // Verify that the new connection is still healthy
                         break;
                     }
                 }
