@@ -185,7 +185,10 @@ mod tests {
             match msg {
                 TwitchMessage::Welcome(_) => {
                     welcome_count += 1;
-                    if welcome_count > 1 {
+                }
+                TwitchMessage::Keepalive(_) => {
+                    if welcome_count >= 2 {
+                        // Verify that the new connection is still healthy
                         res.socket
                             .lock()
                             .unwrap()
@@ -194,11 +197,6 @@ mod tests {
                                 reason: "Closing after reconnect test.".into(),
                             }))
                             .unwrap();
-                    }
-                }
-                TwitchMessage::Keepalive(_) => {
-                    if welcome_count >= 2 {
-                        // Verify that the new connection is still healthy
                         break;
                     }
                 }
