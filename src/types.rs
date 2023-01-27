@@ -171,6 +171,7 @@ impl Reconnect {
 }
 
 impl TwitchMessage {
+    /// Return a clone of the ID of the message
     pub fn id(&self) -> String {
         match self {
             Self::Welcome(msg) => msg.metadata.message_id.clone(),

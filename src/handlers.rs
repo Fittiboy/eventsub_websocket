@@ -1,5 +1,5 @@
 use crate::handlers::error::*;
-use crate::types::{MessageId, Reconnect, Session, TwitchMessage, Welcome};
+use crate::types::{Reconnect, Session, TwitchMessage, Welcome};
 use std::sync::mpsc::Sender;
 
 pub mod error;
@@ -8,7 +8,7 @@ impl TwitchMessage {
     pub fn handle(
         &self,
         session: Option<&mut Session>,
-        tx: Sender<TwitchMessage>,
+        tx: &mut Sender<TwitchMessage>,
     ) -> Result<(), HandlerErr> {
         match self {
             TwitchMessage::Welcome(msg) => Ok(msg.handle(session)?),
@@ -45,7 +45,7 @@ impl Reconnect {
     fn handle(
         &self,
         session: Option<&mut Session>,
-        tx: Sender<TwitchMessage>,
+        tx: &mut Sender<TwitchMessage>,
     ) -> Result<(), ReconnectHandlerErr> {
         let old_session = match session {
             Some(session) => session,
@@ -77,7 +77,7 @@ impl Reconnect {
 
             let is_welcome: bool = matches!(msg, TwitchMessage::Welcome(_));
 
-            match msg.handle(Some(&mut new_session), tx.clone()) {
+            match msg.handle(Some(&mut new_session), tx) {
                 Ok(_) => {}
                 Err(err) => match err {
                     HandlerErr::Welcome(err) => match err {
@@ -116,7 +116,7 @@ impl Reconnect {
                 continue;
             }
 
-            msg.handle(Some(old_session), tx.clone())?;
+            msg.handle(Some(old_session), tx)?;
 
             tx.send(msg)?;
 

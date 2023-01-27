@@ -3,7 +3,7 @@ use tungstenite::connect;
 use url::Url;
 
 use crate::handlers::error::*;
-use crate::types::{MessageId, Session, TwitchMessage};
+use crate::types::{Session, TwitchMessage};
 
 pub use crate::handlers::error;
 pub use serde_json::from_str as parse_message;
@@ -30,7 +30,7 @@ pub fn event_handler(
             continue;
         }
 
-        msg.handle(Some(session), tx.clone())?;
+        msg.handle(Some(session), &mut tx)?;
 
         tx.send(msg)?;
 
