@@ -2,7 +2,7 @@
 
 use std::sync::{mpsc::Sender, Arc, Mutex};
 use std::thread;
-use tungstenite::{
+pub use tungstenite::{
     connect,
     protocol::frame::{coding::CloseCode, CloseFrame},
 };
