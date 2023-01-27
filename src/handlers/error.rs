@@ -2,6 +2,7 @@ use crate::TwitchMessage;
 use std::io;
 use std::sync::mpsc::SendError;
 use thiserror::Error;
+use url::ParseError;
 
 #[derive(Error, Debug)]
 pub enum HandlerErr {
@@ -66,5 +67,67 @@ impl From<HandlerErr> for ReconnectHandlerErr {
 impl From<SendError<TwitchMessage>> for ReconnectHandlerErr {
     fn from(err: SendError<TwitchMessage>) -> ReconnectHandlerErr {
         ReconnectHandlerErr::Handler(err.to_string())
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum SessionErr {
+    #[error("error parsing url: {0}")]
+    Parse(ParseError),
+    #[error("connection error: {0}")]
+    Connect(tungstenite::Error),
+}
+
+impl From<ParseError> for EventSubErr {
+    fn from(err: ParseError) -> Self {
+        EventSubErr::Session(SessionErr::Parse(err))
+    }
+}
+
+impl From<tungstenite::Error> for SessionErr {
+    fn from(err: tungstenite::Error) -> Self {
+        SessionErr::Connect(err)
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum EventSubErr {
+    #[error("general handler error: {0}")]
+    GeneralHandler(HandlerErr),
+    #[error("socket error: {0}")]
+    Socket(tungstenite::Error),
+    #[error("session error: {0}")]
+    Session(SessionErr),
+    #[error("error sending through channel: {0}")]
+    Sending(SendError<TwitchMessage>),
+}
+
+impl From<EventSubErr> for String {
+    fn from(err: EventSubErr) -> String {
+        err.to_string()
+    }
+}
+
+impl From<HandlerErr> for EventSubErr {
+    fn from(err: HandlerErr) -> Self {
+        EventSubErr::GeneralHandler(err)
+    }
+}
+
+impl From<SessionErr> for EventSubErr {
+    fn from(err: SessionErr) -> Self {
+        EventSubErr::Session(err)
+    }
+}
+
+impl From<tungstenite::Error> for EventSubErr {
+    fn from(err: tungstenite::Error) -> Self {
+        EventSubErr::Socket(err)
+    }
+}
+
+impl From<SendError<TwitchMessage>> for EventSubErr {
+    fn from(err: SendError<TwitchMessage>) -> Self {
+        EventSubErr::Sending(err)
     }
 }
