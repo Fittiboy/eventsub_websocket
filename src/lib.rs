@@ -17,26 +17,34 @@ pub use serde_json::from_str as parse_message;
 pub mod handlers;
 pub mod types;
 
-pub fn listen_loop<'a>(
-    session: &'a mut Session,
+pub fn listen_loop(
+    session: &mut Session,
     tx: &Sender<TwitchMessage>,
     reconnect: bool,
     close_old: bool,
 ) -> std::result::Result<(), EventSubErr> {
+    let mut closed = false;
     loop {
-        let msg = session.socket.lock()?.read_message()?;
+        if close_old && !closed {
+            session.socket.lock()?.close(Some(CloseFrame {
+                code: CloseCode::Normal,
+                reason: "Received reconnect message.".into(),
+            }))?;
+            closed = true;
+        }
+
+        let msg = {
+            let mut socket = session.socket.lock()?;
+            if !socket.can_read() {
+                break;
+            }
+            socket.read_message()?
+        };
         let msg_raw = msg.to_text()?.to_owned();
         let msg: TwitchMessage = match serde_json::from_str(&msg_raw) {
             Ok(msg) => msg,
             Err(_) => continue,
         };
-
-        if close_old {
-            session.socket.lock()?.close(Some(CloseFrame {
-                code: CloseCode::Normal,
-                reason: "Received reconnect message.".into(),
-            }))?;
-        }
 
         let message_id = msg.id();
 
@@ -107,10 +115,25 @@ pub fn get_session(url: Option<&str>) -> Result<Session, EventSubErr> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::process::{Child, Command};
     use std::sync::mpsc::{self, Receiver, Sender};
+    use std::thread;
+
+    static COMMAND: &str = "./scripts/test_server.sh";
+
+    fn start_server(reconnect: bool, port: u32) -> Child {
+        let mut command = Command::new(COMMAND);
+        command.arg("--port").arg(&format!("{}", port));
+        if reconnect {
+            command.arg("--reconnect").arg("3");
+        }
+        command.spawn().expect("failed to start server")
+    }
 
     #[test]
     fn connect_to_mock() {
+        let mut handle = start_server(false, 8080);
+        thread::sleep(std::time::Duration::from_secs(1));
         let session = get_session(Some("ws://localhost:8080/eventsub")).unwrap();
         session
             .socket
@@ -121,12 +144,15 @@ mod tests {
                 reason: "Closing after connect test.".into(),
             }))
             .unwrap();
+        handle.kill().unwrap();
     }
 
     #[test]
     fn handle_welcome_message() {
+        let mut handle = start_server(false, 8082);
+        thread::sleep(std::time::Duration::from_secs(1));
         let (tx, rx): (Sender<TwitchMessage>, Receiver<TwitchMessage>) = mpsc::channel();
-        let res = event_handler(Some("ws://localhost:8080/eventsub"), tx).unwrap();
+        let res = event_handler(Some("ws://localhost:8082/eventsub"), tx).unwrap();
         loop {
             let msg: TwitchMessage = rx.recv().map_err(|err| format!("{}", err)).unwrap();
             match msg {
@@ -139,18 +165,21 @@ mod tests {
                             reason: "Closing after Welcome test.".into(),
                         }))
                         .unwrap();
-                    return ();
+                    break;
                 }
                 _ => {}
             }
         }
+        handle.kill().unwrap();
     }
 
     #[test]
     fn handle_reconnect_message() {
+        let mut handle = start_server(true, 8084);
+        thread::sleep(std::time::Duration::from_secs(1));
         let mut welcome_count = 0;
         let (tx, rx): (Sender<TwitchMessage>, Receiver<TwitchMessage>) = mpsc::channel();
-        let res = event_handler(Some("ws://localhost:8080/eventsub"), tx).unwrap();
+        let res = event_handler(Some("ws://localhost:8084/eventsub"), tx).unwrap();
         loop {
             let msg: TwitchMessage = rx.recv().map_err(|err| format!("{}", err)).unwrap();
             match msg {
@@ -165,11 +194,12 @@ mod tests {
                                 reason: "Closing after reconnect test.".into(),
                             }))
                             .unwrap();
-                        return ();
+                        break;
                     }
                 }
                 _ => {}
             }
         }
+        handle.kill().unwrap();
     }
 }

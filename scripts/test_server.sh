@@ -4,4 +4,4 @@ if ! [ -x "$(command -v twitch)" ]; then
     exit 1
 fi
 
-twitch event start-websocket-server --reconnect 10
+twitch event start-websocket-server $*
