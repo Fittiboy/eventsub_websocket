@@ -1,3 +1,5 @@
+#![allow(clippy::uninlined_format_args)]
+
 use std::sync::mpsc::Sender;
 use tungstenite::connect;
 use url::Url;

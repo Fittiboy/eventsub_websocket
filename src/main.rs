@@ -1,3 +1,5 @@
+#![allow(clippy::uninlined_format_args)]
+
 use eventsub_websocket::types::TwitchMessage;
 use eventsub_websocket::{event_handler, get_session};
 use std::sync::mpsc;
