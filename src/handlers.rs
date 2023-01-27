@@ -21,8 +21,8 @@ impl TwitchMessage {
 impl Welcome {
     fn handle(&self, session: Option<&mut Session>) -> Result<(), WelcomeHandlerErr> {
         if let Some(session) = session {
-            session.id = self.session_id().to_string();
-            let keepalive = self.keepalive().as_u64();
+            session.id = self.payload.session.id.to_string();
+            let keepalive = self.payload.session.keepalive_timeout_seconds.as_u64();
             match keepalive {
                 Some(time) => session.set_keepalive(time)?,
                 None => {
@@ -56,7 +56,7 @@ impl Reconnect {
             }
         };
 
-        let url = self.reconnect_url();
+        let url = &self.payload.session.reconnect_url;
         let mut new_session = crate::get_session(Some(url))
             .map_err(|err| ReconnectHandlerErr::Session(err.to_string()))?;
 

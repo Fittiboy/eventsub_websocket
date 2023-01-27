@@ -33,94 +33,94 @@ pub enum TwitchMessage {
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct Notification {
-    metadata: SubscriptionMetadata,
-    payload: NotificationPayload,
+    pub metadata: SubscriptionMetadata,
+    pub payload: NotificationPayload,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct Welcome {
-    metadata: GenericMetadata,
-    payload: WelcomeSessionPayload,
+    pub metadata: GenericMetadata,
+    pub payload: WelcomeSessionPayload,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct Reconnect {
-    metadata: GenericMetadata,
-    payload: ReconnectSessionPayload,
+    pub metadata: GenericMetadata,
+    pub payload: ReconnectSessionPayload,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct Keepalive {
-    metadata: GenericMetadata,
-    payload: Value,
+    pub metadata: GenericMetadata,
+    pub payload: Value,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct Revocation {
-    metadata: SubscriptionMetadata,
-    payload: SubscriptionPayload,
+    pub metadata: SubscriptionMetadata,
+    pub payload: SubscriptionPayload,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct GenericMetadata {
-    message_id: String,
-    message_type: String,
-    message_timestamp: String,
+    pub message_id: String,
+    pub message_type: String,
+    pub message_timestamp: String,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct WelcomeSessionData {
-    id: String,
-    status: String,
-    connected_at: String,
-    keepalive_timeout_seconds: Number,
-    reconnect_url: Option<String>,
+    pub id: String,
+    pub status: String,
+    pub connected_at: String,
+    pub keepalive_timeout_seconds: Number,
+    pub reconnect_url: Option<String>,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct ReconnectSessionData {
-    id: String,
-    status: String,
-    connected_at: String,
-    keepalive_timeout_seconds: Option<Number>,
-    reconnect_url: String,
+    pub id: String,
+    pub status: String,
+    pub connected_at: String,
+    pub keepalive_timeout_seconds: Option<Number>,
+    pub reconnect_url: String,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct WelcomeSessionPayload {
-    session: WelcomeSessionData,
+    pub session: WelcomeSessionData,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct ReconnectSessionPayload {
-    session: ReconnectSessionData,
+    pub session: ReconnectSessionData,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct SubscriptionMetadata {
-    message_id: String,
-    message_type: String,
-    message_timestamp: String,
-    subscription_type: String,
-    subscription_version: String,
+    pub message_id: String,
+    pub message_type: String,
+    pub message_timestamp: String,
+    pub subscription_type: String,
+    pub subscription_version: String,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct SubscriptionPayload {
-    id: String,
-    status: String,
-    r#type: String,
-    version: String,
-    cost: Number,
-    condition: Value,
-    transport: Value,
-    created_at: String,
+    pub id: String,
+    pub status: String,
+    pub r#type: String,
+    pub version: String,
+    pub cost: Number,
+    pub condition: Value,
+    pub transport: Value,
+    pub created_at: String,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct NotificationPayload {
-    subscription: SubscriptionPayload,
-    event: Value,
+    pub subscription: SubscriptionPayload,
+    pub event: Value,
 }
 
 impl Session {
@@ -148,30 +148,8 @@ impl Session {
     }
 }
 
-impl Welcome {
-    pub fn session_id(&self) -> &str {
-        &self.payload.session.id
-    }
-
-    pub fn keepalive(&self) -> &Number {
-        &self.payload.session.keepalive_timeout_seconds
-    }
-}
-
-impl Notification {
-    pub fn payload(&self) -> &NotificationPayload {
-        &self.payload
-    }
-}
-
-impl Reconnect {
-    pub fn reconnect_url(&self) -> &String {
-        &self.payload.session.reconnect_url
-    }
-}
-
 impl TwitchMessage {
-    /// Return a clone of the ID of the message
+    /// Return a clone of the message ID
     pub fn id(&self) -> String {
         match self {
             Self::Welcome(msg) => msg.metadata.message_id.clone(),
