@@ -1,21 +1,16 @@
-use std::net::TcpStream;
 use std::sync::mpsc::{SendError, Sender};
 use thiserror::Error;
-use tungstenite::{connect, stream::MaybeTlsStream, WebSocket};
+use tungstenite::connect;
 use url::{ParseError, Url};
 
+use crate::handlers::error::*;
 use crate::types::{MessageFields, Session, TwitchMessage};
 
+pub use crate::handlers::error;
 pub use serde_json::from_str as parse_message;
-
-pub use handlers::error;
-
-use handlers::error::*;
 
 pub mod handlers;
 pub mod types;
-
-pub type Socket = WebSocket<MaybeTlsStream<TcpStream>>;
 
 #[derive(Error, Debug)]
 pub enum SessionErr {
