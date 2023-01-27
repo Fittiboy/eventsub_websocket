@@ -8,7 +8,7 @@ impl TwitchMessage {
     pub fn handle(
         &self,
         session: Option<&mut Session>,
-        tx: &mut Sender<TwitchMessage>,
+        tx: &Sender<TwitchMessage>,
     ) -> Result<(), HandlerErr> {
         match self {
             TwitchMessage::Welcome(msg) => Ok(msg.handle(session)?),
@@ -45,7 +45,7 @@ impl Reconnect {
     fn handle(
         &self,
         session: Option<&mut Session>,
-        tx: &mut Sender<TwitchMessage>,
+        tx: &Sender<TwitchMessage>,
     ) -> Result<(), ReconnectHandlerErr> {
         let old_session = match session {
             Some(session) => session,

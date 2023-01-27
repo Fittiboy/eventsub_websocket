@@ -30,7 +30,7 @@ pub fn event_handler(
             continue;
         }
 
-        msg.handle(Some(session), &mut tx)?;
+        msg.handle(Some(session), &tx)?;
 
         tx.send(msg)?;
 
