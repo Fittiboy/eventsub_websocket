@@ -168,41 +168,41 @@ impl Reconnect {
     }
 }
 
-pub trait MessageFields {
+pub trait MessageId {
     fn id(&self) -> String;
 }
 
-impl MessageFields for Welcome {
+impl MessageId for Welcome {
     fn id(&self) -> String {
         self.metadata.message_id.clone()
     }
 }
 
-impl MessageFields for Keepalive {
+impl MessageId for Keepalive {
     fn id(&self) -> String {
         self.metadata.message_id.clone()
     }
 }
 
-impl MessageFields for Notification {
+impl MessageId for Notification {
     fn id(&self) -> String {
         self.metadata.message_id.clone()
     }
 }
 
-impl MessageFields for Reconnect {
+impl MessageId for Reconnect {
     fn id(&self) -> String {
         self.metadata.message_id.clone()
     }
 }
 
-impl MessageFields for Revocation {
+impl MessageId for Revocation {
     fn id(&self) -> String {
         self.metadata.message_id.clone()
     }
 }
 
-impl MessageFields for TwitchMessage {
+impl MessageId for TwitchMessage {
     fn id(&self) -> String {
         match self {
             Self::Welcome(msg) => msg.id(),

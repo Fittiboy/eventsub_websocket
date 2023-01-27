@@ -1,5 +1,5 @@
 use crate::handlers::error::*;
-use crate::types::{MessageFields, Reconnect, Session, TwitchMessage, Welcome};
+use crate::types::{MessageId, Reconnect, Session, TwitchMessage, Welcome};
 use std::sync::mpsc::Sender;
 
 pub mod error;

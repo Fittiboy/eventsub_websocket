@@ -3,7 +3,7 @@ use tungstenite::connect;
 use url::Url;
 
 use crate::handlers::error::*;
-use crate::types::{MessageFields, Session, TwitchMessage};
+use crate::types::{MessageId, Session, TwitchMessage};
 
 pub use crate::handlers::error;
 pub use serde_json::from_str as parse_message;
