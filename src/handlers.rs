@@ -1,41 +1,11 @@
+use crate::handlers::error::*;
 use crate::types::{MessageFields, Reconnect, Session, TwitchMessage, Welcome};
-use std::io;
-use std::sync::mpsc::{SendError, Sender};
-use thiserror::Error;
+use std::sync::mpsc::Sender;
 
-#[derive(Error, Debug)]
-pub enum HandlerErr {
-    #[error("error handling welcome message: {0}")]
-    Welcome(WelcomeHandlerErr),
-    #[error("error handling erconnect message: {0}")]
-    Reconnect(ReconnectHandlerErr),
-}
+pub mod error;
 
-impl From<WelcomeHandlerErr> for HandlerErr {
-    fn from(err: WelcomeHandlerErr) -> Self {
-        HandlerErr::Welcome(err)
-    }
-}
-
-impl From<ReconnectHandlerErr> for HandlerErr {
-    fn from(err: ReconnectHandlerErr) -> Self {
-        HandlerErr::Reconnect(err)
-    }
-}
-
-pub trait Handler
-where
-    Self: std::fmt::Debug,
-{
-    fn handle(
-        &self,
-        session: Option<&mut Session>,
-        tx: Sender<TwitchMessage>,
-    ) -> Result<(), HandlerErr>;
-}
-
-impl Handler for TwitchMessage {
-    fn handle(
+impl TwitchMessage {
+    pub fn handle(
         &self,
         session: Option<&mut Session>,
         tx: Sender<TwitchMessage>,
@@ -48,28 +18,10 @@ impl Handler for TwitchMessage {
     }
 }
 
-#[derive(Error, Debug)]
-pub enum WelcomeHandlerErr {
-    #[error("Twitch did not return a keepalive: {0}")]
-    NoKeepalive(String),
-    #[error("Twitch returned an invalid keepalive: {0}")]
-    InvalidKeepalive(String),
-    #[error("no session was provided: {0}")]
-    NoSession(String),
-    #[error("error when setting keepalive: {0}")]
-    CannotSetKeepalive(io::Error),
-}
-
-impl From<io::Error> for WelcomeHandlerErr {
-    fn from(err: io::Error) -> Self {
-        WelcomeHandlerErr::CannotSetKeepalive(err)
-    }
-}
-
 impl Welcome {
     fn handle(&self, session: Option<&mut Session>) -> Result<(), WelcomeHandlerErr> {
         if let Some(session) = session {
-            session.set_id(self.session_id().to_string());
+            session.id = self.session_id().to_string();
             let keepalive = self.keepalive().as_u64();
             match keepalive {
                 Some(time) => session.set_keepalive(time)?,
@@ -86,34 +38,6 @@ impl Welcome {
             ));
         };
         Ok(())
-    }
-}
-
-#[derive(Error, Debug)]
-pub enum ReconnectHandlerErr {
-    #[error("session error while reconnecting: {0}")]
-    Session(String),
-    #[error("general error while reconnecting: {0}")]
-    Handler(String),
-    #[error("connection error while reconnecting: {0}")]
-    Connection(tungstenite::Error),
-}
-
-impl From<tungstenite::Error> for ReconnectHandlerErr {
-    fn from(err: tungstenite::Error) -> ReconnectHandlerErr {
-        ReconnectHandlerErr::Connection(err)
-    }
-}
-
-impl From<HandlerErr> for ReconnectHandlerErr {
-    fn from(err: HandlerErr) -> ReconnectHandlerErr {
-        ReconnectHandlerErr::Handler(err.to_string())
-    }
-}
-
-impl From<SendError<TwitchMessage>> for ReconnectHandlerErr {
-    fn from(err: SendError<TwitchMessage>) -> ReconnectHandlerErr {
-        ReconnectHandlerErr::Handler(err.to_string())
     }
 }
 
@@ -137,7 +61,7 @@ impl Reconnect {
             .map_err(|err| ReconnectHandlerErr::Session(err.to_string()))?;
 
         loop {
-            let msg = new_session.socket().read_message()?;
+            let msg = new_session.socket.read_message()?;
             let msg_raw = msg.to_text()?.to_owned();
             let msg: TwitchMessage = match serde_json::from_str(&msg_raw) {
                 Ok(msg) => msg,
@@ -146,7 +70,7 @@ impl Reconnect {
 
             let message_id = msg.id();
 
-            if new_session.handled().contains(&message_id) {
+            if new_session.handled.contains(&message_id) {
                 println!("Duplicate message: {:#?}", msg);
                 continue;
             }
@@ -166,7 +90,7 @@ impl Reconnect {
 
             tx.send(msg)?;
 
-            new_session.handled().push(message_id.to_owned());
+            new_session.handled.push(message_id.to_owned());
 
             if is_welcome {
                 break;
@@ -174,11 +98,11 @@ impl Reconnect {
         }
 
         loop {
-            let msg = match old_session.socket().read_message() {
+            let msg = match old_session.socket.read_message() {
                 Ok(msg) => msg,
                 Err(_) => break,
             };
-            old_session.socket().close(None)?;
+            old_session.socket.close(None)?;
             let msg_raw = msg.to_text()?.to_owned();
             let msg: TwitchMessage = match serde_json::from_str(&msg_raw) {
                 Ok(msg) => msg,
@@ -187,7 +111,7 @@ impl Reconnect {
 
             let message_id = msg.id();
 
-            if old_session.handled().contains(&message_id) {
+            if old_session.handled.contains(&message_id) {
                 println!("Duplicate message: {:#?}", msg);
                 continue;
             }
@@ -196,7 +120,7 @@ impl Reconnect {
 
             tx.send(msg)?;
 
-            old_session.handled().push(message_id.to_owned());
+            old_session.handled.push(message_id.to_owned());
         }
 
         *old_session = new_session;

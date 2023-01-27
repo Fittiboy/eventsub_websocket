@@ -4,10 +4,13 @@ use thiserror::Error;
 use tungstenite::{connect, stream::MaybeTlsStream, WebSocket};
 use url::{ParseError, Url};
 
-use crate::handlers::*;
 use crate::types::{MessageFields, Session, TwitchMessage};
 
 pub use serde_json::from_str as parse_message;
+
+pub use handlers::error;
+
+use handlers::error::*;
 
 pub mod handlers;
 pub mod types;
@@ -92,7 +95,7 @@ pub fn event_handler(
     tx: Sender<TwitchMessage>,
 ) -> std::result::Result<(), EventSubErr> {
     loop {
-        let msg = session.socket().read_message()?;
+        let msg = session.socket.read_message()?;
         let msg_raw = msg.to_text()?.to_owned();
         let msg: TwitchMessage = match serde_json::from_str(&msg_raw) {
             Ok(msg) => msg,
@@ -101,7 +104,7 @@ pub fn event_handler(
 
         let message_id = msg.id();
 
-        if session.handled().contains(&message_id) {
+        if session.handled.contains(&message_id) {
             println!("Duplicate message: {:#?}", msg);
             continue;
         }
@@ -110,7 +113,7 @@ pub fn event_handler(
 
         tx.send(msg)?;
 
-        session.handled().push(message_id.to_owned());
+        session.handled.push(message_id.to_owned());
     }
 }
 
