@@ -1,7 +1,10 @@
+use crate::error::KeepaliveErr;
 use serde::{Deserialize, Serialize};
 use serde_json::Number;
 use serde_json::Value;
 use std::net::TcpStream;
+use std::sync::{Arc, Mutex};
+use std::thread::JoinHandle;
 use std::time::Duration;
 use tungstenite::{stream::MaybeTlsStream, WebSocket};
 
@@ -10,12 +13,17 @@ use tungstenite::{stream::MaybeTlsStream, WebSocket};
 /// the vector of handled messages (to avoid handling duplicates).
 pub struct Session {
     /// The socket which is connected to Twitch's EventSub WebSocket server.
-    pub socket: Socket,
+    pub socket: Arc<Mutex<Socket>>,
     /// The session ID Twitch returns with the `Welcome` message. Initially empty String.
     pub id: String,
     /// The `handled` vector contains the message IDs of those messages which have already been
     /// handled, to avoid taking action twice when Twitch repeats their notification.
     pub handled: Vec<String>,
+}
+
+pub struct EventResult {
+    pub listener: JoinHandle<Result<(), String>>,
+    pub socket: Arc<Mutex<crate::types::Socket>>,
 }
 
 /// This layered type is [`tungstenite`](https://crates.io/crates/tungstenite)'s WebSocket connection.
@@ -124,7 +132,7 @@ pub struct NotificationPayload {
 }
 
 impl Session {
-    pub fn new(socket: Socket) -> Session {
+    pub fn new(socket: Arc<Mutex<Socket>>) -> Session {
         Session {
             socket,
             id: String::new(),
@@ -134,8 +142,9 @@ impl Session {
 
     /// Sets the timeout on the `Session`'s contained `Socket` to match the keepalive time returned
     /// by Twitch in a `Welcome` message. Adds an extra second as a grace period.
-    pub fn set_keepalive(&mut self, keepalive: u64) -> Result<(), std::io::Error> {
-        let stream = match self.socket.get_mut() {
+    pub fn set_keepalive(&mut self, keepalive: u64) -> Result<(), KeepaliveErr> {
+        let mut binding = self.socket.lock()?;
+        let stream = match binding.get_mut() {
             MaybeTlsStream::NativeTls(stream) => stream.get_mut(),
             MaybeTlsStream::Plain(stream) => stream,
             _ => unreachable!("Stream has to always be either TLS or plain"),

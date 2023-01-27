@@ -1,7 +1,7 @@
 #![allow(clippy::uninlined_format_args)]
 
-use std::sync::mpsc::Sender;
-use std::thread::{self, JoinHandle};
+use std::sync::{mpsc::Sender, Arc, Mutex};
+use std::thread;
 use tungstenite::{
     connect,
     protocol::frame::{coding::CloseCode, CloseFrame},
@@ -9,7 +9,7 @@ use tungstenite::{
 use url::Url;
 
 use crate::handlers::error::*;
-use crate::types::{Session, TwitchMessage};
+use crate::types::{EventResult, Session, TwitchMessage};
 
 pub use crate::handlers::error;
 pub use serde_json::from_str as parse_message;
@@ -17,14 +17,14 @@ pub use serde_json::from_str as parse_message;
 pub mod handlers;
 pub mod types;
 
-pub fn listen_loop(
-    session: &mut Session,
+pub fn listen_loop<'a>(
+    session: &'a mut Session,
     tx: &Sender<TwitchMessage>,
     reconnect: bool,
     close_old: bool,
 ) -> std::result::Result<(), EventSubErr> {
     loop {
-        let msg = session.socket.read_message()?;
+        let msg = session.socket.lock()?.read_message()?;
         let msg_raw = msg.to_text()?.to_owned();
         let msg: TwitchMessage = match serde_json::from_str(&msg_raw) {
             Ok(msg) => msg,
@@ -32,7 +32,7 @@ pub fn listen_loop(
         };
 
         if close_old {
-            session.socket.close(Some(CloseFrame {
+            session.socket.lock()?.close(Some(CloseFrame {
                 code: CloseCode::Normal,
                 reason: "Received reconnect message.".into(),
             }))?;
@@ -79,8 +79,9 @@ pub fn listen_loop(
 pub fn event_handler(
     url: Option<&str>,
     tx: Sender<TwitchMessage>,
-) -> std::result::Result<JoinHandle<Result<(), String>>, EventSubErr> {
+) -> std::result::Result<EventResult, EventSubErr> {
     let mut session = get_session(url)?;
+    let socket = session.socket.clone();
     let listener =
         thread::Builder::new()
             .name("listener".into())
@@ -88,7 +89,7 @@ pub fn event_handler(
                 listen_loop(&mut session, &tx, false, false)?;
                 Ok(())
             })?;
-    Ok(listener)
+    Ok(EventResult { listener, socket })
 }
 
 pub fn get_session(url: Option<&str>) -> Result<Session, EventSubErr> {
@@ -99,6 +100,7 @@ pub fn get_session(url: Option<&str>) -> Result<Session, EventSubErr> {
         to_parse = "wss://eventsub-beta.wss.twitch.tv/ws";
     }
     let (socket, _) = connect(Url::parse(to_parse)?)?;
+    let socket = Arc::new(Mutex::new(socket));
     Ok(Session::new(socket))
 }
 
@@ -109,17 +111,34 @@ mod tests {
 
     #[test]
     fn connect_to_mock() {
-        get_session(Some("ws://localhost:8080/eventsub")).unwrap();
+        let session = get_session(Some("ws://localhost:8080/eventsub")).unwrap();
+        session
+            .socket
+            .lock()
+            .unwrap()
+            .close(Some(CloseFrame {
+                code: CloseCode::Normal,
+                reason: "Closing after connect test.".into(),
+            }))
+            .unwrap();
     }
 
     #[test]
     fn handle_welcome_message() {
         let (tx, rx): (Sender<TwitchMessage>, Receiver<TwitchMessage>) = mpsc::channel();
-        event_handler(Some("ws://localhost:8080/eventsub"), tx).unwrap();
+        let res = event_handler(Some("ws://localhost:8080/eventsub"), tx).unwrap();
         loop {
             let msg: TwitchMessage = rx.recv().map_err(|err| format!("{}", err)).unwrap();
             match msg {
                 TwitchMessage::Welcome(_) => {
+                    res.socket
+                        .lock()
+                        .unwrap()
+                        .close(Some(CloseFrame {
+                            code: CloseCode::Normal,
+                            reason: "Closing after Welcome test.".into(),
+                        }))
+                        .unwrap();
                     return ();
                 }
                 _ => {}
@@ -131,13 +150,21 @@ mod tests {
     fn handle_reconnect_message() {
         let mut welcome_count = 0;
         let (tx, rx): (Sender<TwitchMessage>, Receiver<TwitchMessage>) = mpsc::channel();
-        event_handler(Some("ws://localhost:8080/eventsub"), tx).unwrap();
+        let res = event_handler(Some("ws://localhost:8080/eventsub"), tx).unwrap();
         loop {
             let msg: TwitchMessage = rx.recv().map_err(|err| format!("{}", err)).unwrap();
             match msg {
                 TwitchMessage::Welcome(_) => {
                     welcome_count += 1;
                     if welcome_count > 1 {
+                        res.socket
+                            .lock()
+                            .unwrap()
+                            .close(Some(CloseFrame {
+                                code: CloseCode::Normal,
+                                reason: "Closing after reconnect test.".into(),
+                            }))
+                            .unwrap();
                         return ();
                     }
                 }
