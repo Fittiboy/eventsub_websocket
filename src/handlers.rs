@@ -2,13 +2,14 @@ use crate::handlers::error::*;
 use crate::listen_loop;
 use crate::types::{Reconnect, Session, TwitchMessage, Welcome};
 use std::sync::mpsc::Sender;
+use std::sync::{Arc, Mutex};
 
 pub mod error;
 
 impl TwitchMessage {
     pub fn handle(
         &self,
-        session: Option<&mut Session>,
+        session: Option<Arc<Mutex<Session>>>,
         tx: &Sender<TwitchMessage>,
     ) -> Result<(), HandlerErr> {
         match self {
@@ -20,8 +21,9 @@ impl TwitchMessage {
 }
 
 impl Welcome {
-    fn handle(&self, session: Option<&mut Session>) -> Result<(), WelcomeHandlerErr> {
+    fn handle(&self, session: Option<Arc<Mutex<Session>>>) -> Result<(), WelcomeHandlerErr> {
         if let Some(session) = session {
+            let mut session = session.lock()?;
             session.id = self.payload.session.id.to_string();
             let keepalive = self.payload.session.keepalive_timeout_seconds.as_u64();
             match keepalive {
@@ -45,7 +47,7 @@ impl Welcome {
 impl Reconnect {
     fn handle(
         &self,
-        session: Option<&mut Session>,
+        session: Option<Arc<Mutex<Session>>>,
         tx: &Sender<TwitchMessage>,
     ) -> Result<(), ReconnectHandlerErr> {
         let old_session = match session {
@@ -58,16 +60,16 @@ impl Reconnect {
         };
 
         let url = &self.payload.session.reconnect_url;
-        let mut new_session = crate::get_session(Some(url))
+        let new_session = crate::get_session(Some(url))
             .map_err(|err| ReconnectHandlerErr::Session(err.to_string()))?;
 
-        listen_loop(&mut new_session, tx, true, false)
+        listen_loop(Arc::clone(&new_session), tx, true, false)
             .map_err(|err| ReconnectHandlerErr::Handler(err.to_string()))?;
 
-        listen_loop(old_session, tx, false, true)
+        listen_loop(Arc::clone(&old_session), tx, false, true)
             .map_err(|err| ReconnectHandlerErr::Handler(err.to_string()))?;
 
-        *old_session = new_session;
+        old_session.lock()?.socket = Arc::clone(&new_session.lock()?.socket);
         Ok(())
     }
 }

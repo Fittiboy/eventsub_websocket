@@ -18,7 +18,7 @@ pub mod handlers;
 pub mod types;
 
 pub fn listen_loop(
-    session: &mut Session,
+    session: Arc<Mutex<Session>>,
     tx: &Sender<TwitchMessage>,
     reconnect: bool,
     close_old: bool,
@@ -26,7 +26,7 @@ pub fn listen_loop(
     let mut closed = false;
     loop {
         if close_old && !closed {
-            session.socket.lock()?.close(Some(CloseFrame {
+            session.lock()?.socket.lock()?.close(Some(CloseFrame {
                 code: CloseCode::Normal,
                 reason: "Received reconnect message.".into(),
             }))?;
@@ -34,6 +34,7 @@ pub fn listen_loop(
         }
 
         let msg = {
+            let session = session.lock()?;
             let mut socket = session.socket.lock()?;
             if !socket.can_read() {
                 break;
@@ -48,14 +49,14 @@ pub fn listen_loop(
 
         let message_id = msg.id();
 
-        if session.handled.contains(&message_id) {
+        if session.lock()?.handled.contains(&message_id) {
             println!("Duplicate message: {:#?}", msg);
             continue;
         }
 
         let is_welcome: bool = matches!(msg, TwitchMessage::Welcome(_));
 
-        match msg.handle(Some(session), tx) {
+        match msg.handle(Some(Arc::clone(&session)), tx) {
             Ok(_) => {}
             Err(err) => match err {
                 HandlerErr::Welcome(err) => match err {
@@ -75,7 +76,7 @@ pub fn listen_loop(
 
         tx.send(msg)?;
 
-        session.handled.push(message_id.to_owned());
+        session.lock()?.handled.push(message_id.to_owned());
 
         if is_welcome && reconnect {
             break;
@@ -88,19 +89,19 @@ pub fn event_handler(
     url: Option<&str>,
     tx: Sender<TwitchMessage>,
 ) -> std::result::Result<EventResult, EventSubErr> {
-    let mut session = get_session(url)?;
-    let socket = Arc::clone(&session.socket);
+    let session = get_session(url)?;
+    let move_sess = Arc::clone(&session);
     let listener =
         thread::Builder::new()
             .name("listener".into())
             .spawn(move || -> Result<(), String> {
-                listen_loop(&mut session, &tx, false, false)?;
+                listen_loop(move_sess, &tx, false, false)?;
                 Ok(())
             })?;
-    Ok(EventResult { listener, socket })
+    Ok(EventResult { listener, session })
 }
 
-pub fn get_session(url: Option<&str>) -> Result<Session, EventSubErr> {
+pub fn get_session(url: Option<&str>) -> Result<Arc<Mutex<Session>>, EventSubErr> {
     let to_parse;
     if let Some(url) = url {
         to_parse = url;
@@ -109,7 +110,7 @@ pub fn get_session(url: Option<&str>) -> Result<Session, EventSubErr> {
     }
     let (socket, _) = connect(Url::parse(to_parse)?)?;
     let socket = Arc::new(Mutex::new(socket));
-    Ok(Session::new(socket))
+    Ok(Arc::new(Mutex::new(Session::new(socket))))
 }
 
 #[cfg(test)]
@@ -136,6 +137,8 @@ mod tests {
         thread::sleep(std::time::Duration::from_secs(1));
         let session = get_session(Some("ws://localhost:8080/eventsub")).unwrap();
         session
+            .lock()
+            .unwrap()
             .socket
             .lock()
             .unwrap()
@@ -157,7 +160,10 @@ mod tests {
             let msg: TwitchMessage = rx.recv().map_err(|err| format!("{}", err)).unwrap();
             match msg {
                 TwitchMessage::Welcome(_) => {
-                    res.socket
+                    res.session
+                        .lock()
+                        .unwrap()
+                        .socket
                         .lock()
                         .unwrap()
                         .close(Some(CloseFrame {
@@ -179,7 +185,16 @@ mod tests {
         thread::sleep(std::time::Duration::from_secs(1));
         let mut welcome_count = 0;
         let (tx, rx): (Sender<TwitchMessage>, Receiver<TwitchMessage>) = mpsc::channel();
-        let res = event_handler(Some("ws://localhost:8084/eventsub"), tx).unwrap();
+        let session = get_session(Some("ws://localhost:8084/eventsub")).unwrap();
+        let tx_clone = tx.clone();
+        let move_sess = Arc::clone(&session);
+        thread::Builder::new()
+            .name("listener".into())
+            .spawn(move || -> Result<(), String> {
+                listen_loop(move_sess, &tx_clone, false, false)?;
+                Ok(())
+            })
+            .unwrap();
         loop {
             let msg: TwitchMessage = rx.recv().map_err(|err| format!("{}", err)).unwrap();
             match msg {
@@ -189,7 +204,10 @@ mod tests {
                 TwitchMessage::Keepalive(_) => {
                     if welcome_count >= 2 {
                         // Verify that the new connection is still healthy
-                        res.socket
+                        session
+                            .lock()
+                            .unwrap()
+                            .socket
                             .lock()
                             .unwrap()
                             .close(Some(CloseFrame {

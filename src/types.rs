@@ -23,7 +23,7 @@ pub struct Session {
 
 pub struct EventResult {
     pub listener: JoinHandle<Result<(), String>>,
-    pub socket: Arc<Mutex<crate::types::Socket>>,
+    pub session: Arc<Mutex<crate::types::Session>>,
 }
 
 /// This layered type is [`tungstenite`](https://crates.io/crates/tungstenite)'s WebSocket connection.

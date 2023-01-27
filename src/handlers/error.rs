@@ -1,4 +1,4 @@
-use crate::types::Socket;
+use crate::types::{Session, Socket};
 use crate::TwitchMessage;
 use std::io;
 use std::sync::mpsc::SendError;
@@ -24,11 +24,19 @@ pub enum WelcomeHandlerErr {
     NoSession(String),
     #[error("error when setting keepalive: {0}")]
     CannotSetKeepalive(KeepaliveErr),
+    #[error("mutex has been poisoned: {0}")]
+    Poison(String),
 }
 
 impl From<KeepaliveErr> for WelcomeHandlerErr {
     fn from(err: KeepaliveErr) -> Self {
         WelcomeHandlerErr::CannotSetKeepalive(err)
+    }
+}
+
+impl From<PoisonError<MutexGuard<'_, Session>>> for WelcomeHandlerErr {
+    fn from(err: PoisonError<MutexGuard<'_, Session>>) -> Self {
+        WelcomeHandlerErr::Poison(err.to_string())
     }
 }
 
@@ -52,11 +60,19 @@ pub enum ReconnectHandlerErr {
     Handler(String),
     #[error("connection error while reconnecting: {0}")]
     Connection(tungstenite::Error),
+    #[error("mutex has been poisoned: {0}")]
+    Poison(String),
 }
 
 impl From<tungstenite::Error> for ReconnectHandlerErr {
     fn from(err: tungstenite::Error) -> ReconnectHandlerErr {
         ReconnectHandlerErr::Connection(err)
+    }
+}
+
+impl From<PoisonError<MutexGuard<'_, Session>>> for ReconnectHandlerErr {
+    fn from(err: PoisonError<MutexGuard<'_, Session>>) -> Self {
+        ReconnectHandlerErr::Poison(err.to_string())
     }
 }
 
@@ -98,7 +114,7 @@ pub enum EventSubErr {
     Sending(SendError<TwitchMessage>),
     #[error("error creating listener thread: {0}")]
     Thread(io::Error),
-    #[error("socket has been poisoned: {0}")]
+    #[error("mutex has been poisoned: {0}")]
     Poison(String),
 }
 
@@ -107,8 +123,15 @@ impl From<EventSubErr> for String {
         err.to_string()
     }
 }
+
 impl From<PoisonError<MutexGuard<'_, Socket>>> for EventSubErr {
     fn from(err: PoisonError<MutexGuard<'_, Socket>>) -> Self {
+        EventSubErr::Poison(err.to_string())
+    }
+}
+
+impl From<PoisonError<MutexGuard<'_, Session>>> for EventSubErr {
+    fn from(err: PoisonError<MutexGuard<'_, Session>>) -> Self {
         EventSubErr::Poison(err.to_string())
     }
 }
@@ -153,7 +176,7 @@ impl From<ParseError> for EventSubErr {
 pub enum KeepaliveErr {
     #[error("error setting the socket's timeout to keepalive: {0}")]
     Timeout(io::Error),
-    #[error("socket has been poisoned: {0}")]
+    #[error("mutex has been poisoned: {0}")]
     Poison(String),
 }
 
