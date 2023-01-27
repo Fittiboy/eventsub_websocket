@@ -81,7 +81,7 @@ pub fn event_handler(
     tx: Sender<TwitchMessage>,
 ) -> std::result::Result<EventResult, EventSubErr> {
     let mut session = get_session(url)?;
-    let socket = session.socket.clone();
+    let socket = Arc::clone(&session.socket);
     let listener =
         thread::Builder::new()
             .name("listener".into())
