@@ -58,12 +58,12 @@ pub fn listen_loop(
                                     break;
                                 }
                                 Err(err) => {
-                                    thread::sleep(Duration::from_secs(reconnect_timer));
                                     println!(
                                         "Failed to connect:\n\t{}\n\tRetrying in {}s...",
                                         err.to_string(),
                                         reconnect_timer
                                     );
+                                    thread::sleep(Duration::from_secs(reconnect_timer));
                                     reconnect_timer *= 2;
                                 }
                             }
