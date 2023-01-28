@@ -2,6 +2,7 @@
 
 use std::sync::{mpsc::Sender, Arc, Mutex};
 use std::thread;
+use std::time::Duration;
 pub use tungstenite::{
     connect,
     protocol::frame::{coding::CloseCode, CloseFrame},
@@ -34,12 +35,48 @@ pub fn listen_loop(
         }
 
         let msg = {
-            let socket = &mut session.lock()?.socket;
+            let session = &mut session.lock()?;
+            let socket = &mut session.socket;
             if !socket.can_read() {
-                break;
+                if close_old {
+                    break;
+                };
             }
-            socket.read_message()?
+            match socket.read_message() {
+                Ok(msg) => msg,
+                Err(err) => match err {
+                    tungstenite::Error::ConnectionClosed => return Err(err.into()),
+                    tungstenite::Error::Io(err) => {
+                        let mut reconnect_timer = 1;
+                        println!("Connection lost\n\t{}\n\tReconnecting...", err.to_string());
+                        loop {
+                            match get_session(None) {
+                                Ok(new_session) => {
+                                    let new_socket = &mut new_session.lock()?.socket;
+                                    std::mem::swap(socket, new_socket);
+                                    println!("Reconnected!");
+                                    break;
+                                }
+                                Err(err) => {
+                                    thread::sleep(Duration::from_secs(reconnect_timer));
+                                    println!(
+                                        "Failed to connect:\n\t{}\n\tRetrying in {}s...",
+                                        err.to_string(),
+                                        reconnect_timer
+                                    );
+                                    reconnect_timer *= 2;
+                                }
+                            }
+                        }
+                        continue;
+                    }
+                    _ => {
+                        return Err(err.into());
+                    }
+                },
+            }
         };
+
         let msg_raw = msg.to_text()?.to_owned();
         let msg: TwitchMessage = match serde_json::from_str(&msg_raw) {
             Ok(msg) => msg,
