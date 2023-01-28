@@ -1,4 +1,4 @@
-use crate::types::{Session, Socket};
+use crate::types::Session;
 use crate::TwitchMessage;
 use std::io;
 use std::sync::mpsc::SendError;
@@ -124,12 +124,6 @@ impl From<EventSubErr> for String {
     }
 }
 
-impl From<PoisonError<MutexGuard<'_, Socket>>> for EventSubErr {
-    fn from(err: PoisonError<MutexGuard<'_, Socket>>) -> Self {
-        EventSubErr::Poison(err.to_string())
-    }
-}
-
 impl From<PoisonError<MutexGuard<'_, Session>>> for EventSubErr {
     fn from(err: PoisonError<MutexGuard<'_, Session>>) -> Self {
         EventSubErr::Poison(err.to_string())
@@ -178,12 +172,6 @@ pub enum KeepaliveErr {
     Timeout(io::Error),
     #[error("session mutex has been poisoned: {0}")]
     Poison(String),
-}
-
-impl From<PoisonError<MutexGuard<'_, Socket>>> for KeepaliveErr {
-    fn from(err: PoisonError<MutexGuard<'_, Socket>>) -> Self {
-        KeepaliveErr::Poison(err.to_string())
-    }
 }
 
 impl From<io::Error> for KeepaliveErr {
