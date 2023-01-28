@@ -63,8 +63,15 @@ pub fn listen_loop(
                     }
                 };
             }
-            socket.read_message()?
+            match socket.read_message() {
+                Ok(msg) => msg,
+                Err(err) => match err {
+                    tungstenite::Error::ConnectionClosed => continue,
+                    _ => return Err(err.into()),
+                },
+            }
         };
+
         let msg_raw = msg.to_text()?.to_owned();
         let msg: TwitchMessage = match serde_json::from_str(&msg_raw) {
             Ok(msg) => msg,
