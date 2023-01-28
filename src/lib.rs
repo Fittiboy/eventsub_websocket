@@ -2,6 +2,7 @@
 
 use std::sync::{mpsc::Sender, Arc, Mutex};
 use std::thread;
+use std::time::Duration;
 pub use tungstenite::{
     connect,
     protocol::frame::{coding::CloseCode, CloseFrame},
@@ -34,9 +35,33 @@ pub fn listen_loop(
         }
 
         let msg = {
-            let socket = &mut session.lock()?.socket;
+            let session = &mut session.lock()?;
+            let socket = &mut session.socket;
             if !socket.can_read() {
-                break;
+                if close_old {
+                    break;
+                } else {
+                    let mut reconnect_timer = 1;
+                    println!("Connection lost, reconnecting...");
+                    loop {
+                        match get_session(None) {
+                            Ok(new_session) => {
+                                let new_socket = &mut new_session.lock()?.socket;
+                                std::mem::swap(socket, new_socket);
+                                println!("Reconnected!");
+                                break;
+                            }
+                            Err(err) => {
+                                thread::sleep(Duration::from_secs(reconnect_timer));
+                                println!(
+                                    "Failed to connect\n\tError: {}\n\tretrying in {}s...",
+                                    err, reconnect_timer
+                                );
+                                reconnect_timer *= 2;
+                            }
+                        }
+                    }
+                };
             }
             socket.read_message()?
         };
