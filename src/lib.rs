@@ -161,7 +161,7 @@ mod tests {
         let mut command = Command::new(COMMAND);
         command.arg("--port").arg(&format!("{}", port));
         if reconnect {
-            command.arg("--reconnect").arg("3");
+            command.arg("--reconnect").arg("1");
         }
         command.spawn().expect("failed to start server")
     }
