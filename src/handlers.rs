@@ -69,7 +69,10 @@ impl Reconnect {
         listen_loop(Arc::clone(&old_session), tx, false, true)
             .map_err(|err| ReconnectHandlerErr::Handler(err.to_string()))?;
 
-        old_session.lock()?.socket = Arc::clone(&new_session.lock()?.socket);
+        std::mem::swap(
+            &mut old_session.lock()?.socket,
+            &mut new_session.lock()?.socket,
+        );
         Ok(())
     }
 }

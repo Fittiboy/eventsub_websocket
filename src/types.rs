@@ -13,7 +13,7 @@ use tungstenite::{stream::MaybeTlsStream, WebSocket};
 /// the vector of handled messages (to avoid handling duplicates).
 pub struct Session {
     /// The socket which is connected to Twitch's EventSub WebSocket server.
-    pub socket: Arc<Mutex<Socket>>,
+    pub socket: Socket,
     /// The session ID Twitch returns with the `Welcome` message. Initially empty String.
     pub id: String,
     /// The `handled` vector contains the message IDs of those messages which have already been
@@ -132,7 +132,7 @@ pub struct NotificationPayload {
 }
 
 impl Session {
-    pub fn new(socket: Arc<Mutex<Socket>>) -> Session {
+    pub fn new(socket: Socket) -> Session {
         Session {
             socket,
             id: String::new(),
@@ -143,7 +143,7 @@ impl Session {
     /// Sets the timeout on the `Session`'s contained `Socket` to match the keepalive time returned
     /// by Twitch in a `Welcome` message. Adds an extra second as a grace period.
     pub fn set_keepalive(&mut self, keepalive: u64) -> Result<(), KeepaliveErr> {
-        let mut binding = self.socket.lock()?;
+        let binding = &mut self.socket;
         let stream = match binding.get_mut() {
             MaybeTlsStream::NativeTls(stream) => stream.get_mut(),
             MaybeTlsStream::Plain(stream) => stream,

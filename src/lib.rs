@@ -26,7 +26,7 @@ pub fn listen_loop(
     let mut closed = false;
     loop {
         if close_old && !closed {
-            session.lock()?.socket.lock()?.close(Some(CloseFrame {
+            session.lock()?.socket.close(Some(CloseFrame {
                 code: CloseCode::Normal,
                 reason: "Received reconnect message.".into(),
             }))?;
@@ -34,8 +34,7 @@ pub fn listen_loop(
         }
 
         let msg = {
-            let session = session.lock()?;
-            let mut socket = session.socket.lock()?;
+            let socket = &mut session.lock()?.socket;
             if !socket.can_read() {
                 break;
             }
@@ -109,7 +108,6 @@ pub fn get_session(url: Option<&str>) -> Result<Arc<Mutex<Session>>, EventSubErr
         to_parse = "wss://eventsub-beta.wss.twitch.tv/ws";
     }
     let (socket, _) = connect(Url::parse(to_parse)?)?;
-    let socket = Arc::new(Mutex::new(socket));
     Ok(Arc::new(Mutex::new(Session::new(socket))))
 }
 
@@ -140,8 +138,6 @@ mod tests {
             .lock()
             .unwrap()
             .socket
-            .lock()
-            .unwrap()
             .close(Some(CloseFrame {
                 code: CloseCode::Normal,
                 reason: "Closing after connect test.".into(),
@@ -164,8 +160,6 @@ mod tests {
                         .lock()
                         .unwrap()
                         .socket
-                        .lock()
-                        .unwrap()
                         .close(Some(CloseFrame {
                             code: CloseCode::Normal,
                             reason: "Closing after Welcome test.".into(),
@@ -208,8 +202,6 @@ mod tests {
                             .lock()
                             .unwrap()
                             .socket
-                            .lock()
-                            .unwrap()
                             .close(Some(CloseFrame {
                                 code: CloseCode::Normal,
                                 reason: "Closing after reconnect test.".into(),
