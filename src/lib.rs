@@ -66,8 +66,8 @@ pub fn listen_loop(
             match socket.read_message() {
                 Ok(msg) => msg,
                 Err(err) => match err {
-                    tungstenite::Error::ConnectionClosed => continue,
-                    _ => return Err(err.into()),
+                    tungstenite::Error::ConnectionClosed => return Err(err.into()),
+                    _ => continue,
                 },
             }
         };
