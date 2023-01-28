@@ -40,34 +40,38 @@ pub fn listen_loop(
             if !socket.can_read() {
                 if close_old {
                     break;
-                } else {
-                    let mut reconnect_timer = 1;
-                    println!("Connection lost, reconnecting...");
-                    loop {
-                        match get_session(None) {
-                            Ok(new_session) => {
-                                let new_socket = &mut new_session.lock()?.socket;
-                                std::mem::swap(socket, new_socket);
-                                println!("Reconnected!");
-                                break;
-                            }
-                            Err(err) => {
-                                thread::sleep(Duration::from_secs(reconnect_timer));
-                                println!(
-                                    "Failed to connect\n\tError: {}\n\tretrying in {}s...",
-                                    err, reconnect_timer
-                                );
-                                reconnect_timer *= 2;
-                            }
-                        }
-                    }
                 };
             }
             match socket.read_message() {
                 Ok(msg) => msg,
                 Err(err) => match err {
                     tungstenite::Error::ConnectionClosed => return Err(err.into()),
-                    _ => continue,
+                    tungstenite::Error::Io(_) => {
+                        let mut reconnect_timer = 1;
+                        println!("Connection lost, reconnecting...");
+                        loop {
+                            match get_session(None) {
+                                Ok(new_session) => {
+                                    let new_socket = &mut new_session.lock()?.socket;
+                                    std::mem::swap(socket, new_socket);
+                                    println!("Reconnected!");
+                                    break;
+                                }
+                                Err(err) => {
+                                    thread::sleep(Duration::from_secs(reconnect_timer));
+                                    println!(
+                                        "Failed to connect\n\tError: {}\n\tretrying in {}s...",
+                                        err, reconnect_timer
+                                    );
+                                    reconnect_timer *= 2;
+                                }
+                            }
+                        }
+                        continue;
+                    }
+                    _ => {
+                        return Err(err.into());
+                    }
                 },
             }
         };
