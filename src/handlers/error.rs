@@ -24,7 +24,7 @@ pub enum WelcomeHandlerErr {
     NoSession(String),
     #[error("error when setting keepalive: {0}")]
     CannotSetKeepalive(KeepaliveErr),
-    #[error("mutex has been poisoned: {0}")]
+    #[error("session mutex has been poisoned: {0}")]
     Poison(String),
 }
 
@@ -60,7 +60,7 @@ pub enum ReconnectHandlerErr {
     Handler(String),
     #[error("connection error while reconnecting: {0}")]
     Connection(tungstenite::Error),
-    #[error("mutex has been poisoned: {0}")]
+    #[error("session mutex has been poisoned: {0}")]
     Poison(String),
 }
 
@@ -114,7 +114,7 @@ pub enum EventSubErr {
     Sending(SendError<TwitchMessage>),
     #[error("error creating listener thread: {0}")]
     Thread(io::Error),
-    #[error("mutex has been poisoned: {0}")]
+    #[error("session mutex has been poisoned: {0}")]
     Poison(String),
 }
 
@@ -176,7 +176,7 @@ impl From<ParseError> for EventSubErr {
 pub enum KeepaliveErr {
     #[error("error setting the socket's timeout to keepalive: {0}")]
     Timeout(io::Error),
-    #[error("mutex has been poisoned: {0}")]
+    #[error("session mutex has been poisoned: {0}")]
     Poison(String),
 }
 
