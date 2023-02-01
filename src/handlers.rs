@@ -57,7 +57,7 @@ impl Reconnect {
         };
 
         let url = &self.payload.session.reconnect_url;
-        let new_session = crate::get_session(Some(url))
+        let new_session = crate::get_session(Some(url.to_string()))
             .map_err(|err| ReconnectHandlerErr::Session(err.to_string()))?;
 
         listen_loop(Arc::clone(&new_session), tx, true, false)

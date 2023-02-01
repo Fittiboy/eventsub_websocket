@@ -19,6 +19,9 @@ pub struct Session {
     /// The `handled` vector contains the message IDs of those messages which have already been
     /// handled, to avoid taking action twice when Twitch repeats their notification.
     pub handled: Vec<String>,
+    /// The url used to connect to the EventSub server, if a different url was recieved from Twitch
+    /// in a `Reconnect` message. (Or used in testing.)
+    pub url: Option<String>,
 }
 
 pub struct EventResult {
@@ -132,11 +135,12 @@ pub struct NotificationPayload {
 }
 
 impl Session {
-    pub fn new(socket: Socket) -> Session {
+    pub fn new(socket: Socket, url: Option<String>) -> Session {
         Session {
             socket,
             id: String::new(),
             handled: vec![],
+            url,
         }
     }
 
