@@ -89,7 +89,10 @@ pub fn create_message_processor(
         let msg: TwitchMessage = match serde_json::from_str(&msg_raw) {
             Ok(msg) => msg,
             Err(_) => {
-                println!("Received unhandled message type from Twitch, ignoring...");
+                if !msg_raw.is_empty() {
+                    println!("Received unhandled message type from Twitch, ignoring...");
+                    println!("Message: {}", msg_raw);
+                }
                 continue;
             }
         };
