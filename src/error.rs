@@ -6,6 +6,25 @@ use std::sync::{MutexGuard, PoisonError};
 use thiserror::Error;
 use url::ParseError;
 
+pub mod casting;
+
+/// Top level error type returned by the API
+#[derive(Error, Debug)]
+pub enum EventSubErr {
+    #[error("general handler error: {0}")]
+    GeneralHandler(HandlerErr),
+    #[error("socket error: {0}")]
+    Socket(tungstenite::Error),
+    #[error("session error: {0}")]
+    Session(SessionErr),
+    #[error("error sending through channel: {0}")]
+    Sending(SendError<TwitchMessage>),
+    #[error("error creating listener thread: {0}")]
+    Thread(io::Error),
+    #[error("session mutex has been poisoned: {0}")]
+    Poison(String),
+}
+
 #[derive(Error, Debug)]
 pub enum HandlerErr {
     #[error("error handling welcome message: {0}")]
@@ -28,30 +47,6 @@ pub enum WelcomeHandlerErr {
     Poison(String),
 }
 
-impl From<KeepaliveErr> for WelcomeHandlerErr {
-    fn from(err: KeepaliveErr) -> Self {
-        WelcomeHandlerErr::CannotSetKeepalive(err)
-    }
-}
-
-impl From<PoisonError<MutexGuard<'_, Session>>> for WelcomeHandlerErr {
-    fn from(err: PoisonError<MutexGuard<'_, Session>>) -> Self {
-        WelcomeHandlerErr::Poison(err.to_string())
-    }
-}
-
-impl From<WelcomeHandlerErr> for HandlerErr {
-    fn from(err: WelcomeHandlerErr) -> Self {
-        HandlerErr::Welcome(err)
-    }
-}
-
-impl From<ReconnectHandlerErr> for HandlerErr {
-    fn from(err: ReconnectHandlerErr) -> Self {
-        HandlerErr::Reconnect(err)
-    }
-}
-
 #[derive(Error, Debug)]
 pub enum ReconnectHandlerErr {
     #[error("session error while reconnecting: {0}")]
@@ -64,30 +59,6 @@ pub enum ReconnectHandlerErr {
     Poison(String),
 }
 
-impl From<tungstenite::Error> for ReconnectHandlerErr {
-    fn from(err: tungstenite::Error) -> ReconnectHandlerErr {
-        ReconnectHandlerErr::Connection(err)
-    }
-}
-
-impl From<PoisonError<MutexGuard<'_, Session>>> for ReconnectHandlerErr {
-    fn from(err: PoisonError<MutexGuard<'_, Session>>) -> Self {
-        ReconnectHandlerErr::Poison(err.to_string())
-    }
-}
-
-impl From<HandlerErr> for ReconnectHandlerErr {
-    fn from(err: HandlerErr) -> ReconnectHandlerErr {
-        ReconnectHandlerErr::Handler(err.to_string())
-    }
-}
-
-impl From<SendError<TwitchMessage>> for ReconnectHandlerErr {
-    fn from(err: SendError<TwitchMessage>) -> ReconnectHandlerErr {
-        ReconnectHandlerErr::Handler(err.to_string())
-    }
-}
-
 #[derive(Error, Debug)]
 pub enum SessionErr {
     #[error("error parsing url: {0}")]
@@ -96,86 +67,10 @@ pub enum SessionErr {
     Connect(tungstenite::Error),
 }
 
-impl From<tungstenite::Error> for SessionErr {
-    fn from(err: tungstenite::Error) -> Self {
-        SessionErr::Connect(err)
-    }
-}
-
-#[derive(Error, Debug)]
-pub enum EventSubErr {
-    #[error("general handler error: {0}")]
-    GeneralHandler(HandlerErr),
-    #[error("socket error: {0}")]
-    Socket(tungstenite::Error),
-    #[error("session error: {0}")]
-    Session(SessionErr),
-    #[error("error sending through channel: {0}")]
-    Sending(SendError<TwitchMessage>),
-    #[error("error creating listener thread: {0}")]
-    Thread(io::Error),
-    #[error("session mutex has been poisoned: {0}")]
-    Poison(String),
-}
-
-impl From<EventSubErr> for String {
-    fn from(err: EventSubErr) -> String {
-        err.to_string()
-    }
-}
-
-impl From<PoisonError<MutexGuard<'_, Session>>> for EventSubErr {
-    fn from(err: PoisonError<MutexGuard<'_, Session>>) -> Self {
-        EventSubErr::Poison(err.to_string())
-    }
-}
-
-impl From<HandlerErr> for EventSubErr {
-    fn from(err: HandlerErr) -> Self {
-        EventSubErr::GeneralHandler(err)
-    }
-}
-
-impl From<SessionErr> for EventSubErr {
-    fn from(err: SessionErr) -> Self {
-        EventSubErr::Session(err)
-    }
-}
-
-impl From<tungstenite::Error> for EventSubErr {
-    fn from(err: tungstenite::Error) -> Self {
-        EventSubErr::Socket(err)
-    }
-}
-
-impl From<SendError<TwitchMessage>> for EventSubErr {
-    fn from(err: SendError<TwitchMessage>) -> Self {
-        EventSubErr::Sending(err)
-    }
-}
-
-impl From<io::Error> for EventSubErr {
-    fn from(err: io::Error) -> Self {
-        EventSubErr::Thread(err)
-    }
-}
-
-impl From<ParseError> for EventSubErr {
-    fn from(err: ParseError) -> Self {
-        EventSubErr::Session(SessionErr::Parse(err))
-    }
-}
-
 #[derive(Error, Debug)]
 pub enum KeepaliveErr {
     #[error("error setting the socket's timeout to keepalive: {0}")]
     Timeout(io::Error),
     #[error("session mutex has been poisoned: {0}")]
     Poison(String),
-}
-
-impl From<io::Error> for KeepaliveErr {
-    fn from(err: io::Error) -> Self {
-        KeepaliveErr::Timeout(err)
-    }
 }
