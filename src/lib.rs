@@ -37,10 +37,8 @@ pub fn listen_loop(
         let msg = {
             let session = &mut session.lock()?;
             let socket = &mut session.socket;
-            if !socket.can_read() {
-                if close_old {
-                    break;
-                };
+            if !socket.can_read() && close_old {
+                break;
             }
             match socket.read_message() {
                 Ok(msg) => msg,
@@ -48,7 +46,7 @@ pub fn listen_loop(
                     tungstenite::Error::ConnectionClosed => return Err(err.into()),
                     tungstenite::Error::Io(err) => {
                         let mut reconnect_timer = 1;
-                        println!("Connection lost\n\t{}\n\tReconnecting...", err.to_string());
+                        println!("Connection lost\n\t{}\n\tReconnecting...", err);
                         loop {
                             match get_session(None) {
                                 Ok(new_session) => {
@@ -60,8 +58,7 @@ pub fn listen_loop(
                                 Err(err) => {
                                     println!(
                                         "Failed to connect:\n\t{}\n\tRetrying in {}s...",
-                                        err.to_string(),
-                                        reconnect_timer
+                                        err, reconnect_timer
                                     );
                                     thread::sleep(Duration::from_secs(reconnect_timer));
                                     reconnect_timer *= 2;
