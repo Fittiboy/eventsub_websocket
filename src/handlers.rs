@@ -1,7 +1,8 @@
 use crate::types::{Reconnect, Session, TwitchMessage, Welcome};
-use crate::{error::*, listen_loop};
+use crate::{create_message_processor, error::*};
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
+use url::Url;
 
 impl TwitchMessage {
     pub fn handle(
@@ -56,15 +57,13 @@ impl Reconnect {
             }
         };
 
-        let url = &self.payload.session.reconnect_url;
-        let new_session = crate::get_session(Some(url.to_string()))
-            .map_err(|err| ReconnectHandlerErr::Session(err.to_string()))?;
+        let url = Url::parse(&self.payload.session.reconnect_url)?;
+        let new_session =
+            crate::get_session(url).map_err(|err| ReconnectHandlerErr::Session(err.to_string()))?;
 
-        listen_loop(Arc::clone(&new_session), tx, true, false)
-            .map_err(|err| ReconnectHandlerErr::Handler(err.to_string()))?;
+        create_message_processor(Arc::clone(&new_session), tx, true, false)?;
 
-        listen_loop(Arc::clone(&old_session), tx, false, true)
-            .map_err(|err| ReconnectHandlerErr::Handler(err.to_string()))?;
+        create_message_processor(Arc::clone(&old_session), tx, false, true)?;
 
         std::mem::swap(
             &mut old_session.lock()?.socket,

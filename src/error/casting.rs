@@ -90,13 +90,25 @@ impl From<PoisonError<MutexGuard<'_, Session>>> for ReconnectHandlerErr {
 
 impl From<HandlerErr> for ReconnectHandlerErr {
     fn from(err: HandlerErr) -> ReconnectHandlerErr {
-        ReconnectHandlerErr::Handler(err.to_string())
+        ReconnectHandlerErr::Handler(Box::new(err))
+    }
+}
+
+impl From<EventSubErr> for ReconnectHandlerErr {
+    fn from(err: EventSubErr) -> ReconnectHandlerErr {
+        ReconnectHandlerErr::EventSub(Box::new(err))
     }
 }
 
 impl From<SendError<TwitchMessage>> for ReconnectHandlerErr {
     fn from(err: SendError<TwitchMessage>) -> ReconnectHandlerErr {
-        ReconnectHandlerErr::Handler(err.to_string())
+        ReconnectHandlerErr::Sending(err)
+    }
+}
+
+impl From<url::ParseError> for ReconnectHandlerErr {
+    fn from(err: url::ParseError) -> ReconnectHandlerErr {
+        ReconnectHandlerErr::Url(err)
     }
 }
 

@@ -23,6 +23,8 @@ pub enum EventSubErr {
     Thread(io::Error),
     #[error("session mutex has been poisoned: {0}")]
     Poison(String),
+    #[error("couldn't parse url: {0}")]
+    Url(url::ParseError),
 }
 
 #[derive(Error, Debug)]
@@ -52,11 +54,17 @@ pub enum ReconnectHandlerErr {
     #[error("session error while reconnecting: {0}")]
     Session(String),
     #[error("general error while reconnecting: {0}")]
-    Handler(String),
+    Handler(Box<HandlerErr>),
+    #[error("general error while reconnecting: {0}")]
+    Sending(SendError<TwitchMessage>),
+    #[error("general error while reconnecting: {0}")]
+    EventSub(Box<EventSubErr>),
     #[error("connection error while reconnecting: {0}")]
     Connection(tungstenite::Error),
     #[error("session mutex has been poisoned: {0}")]
     Poison(String),
+    #[error("couldn't parse url: {0}")]
+    Url(url::ParseError),
 }
 
 #[derive(Error, Debug)]

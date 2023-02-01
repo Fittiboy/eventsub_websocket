@@ -7,6 +7,7 @@ use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::Duration;
 use tungstenite::{stream::MaybeTlsStream, WebSocket};
+use url::Url;
 
 #[derive(Debug)]
 /// The connection to the EventSub server with Twitch, which contains a socket, a session ID, and
@@ -18,19 +19,19 @@ pub struct Session {
     pub id: String,
     /// The `handled` vector contains the message IDs of those messages which have already been
     /// handled, to avoid taking action twice when Twitch repeats their notification.
-    pub handled: Vec<String>,
+    pub handled_messsage_ids: Vec<String>,
     /// The url used to connect to the EventSub server, if a different url was recieved from Twitch
     /// in a `Reconnect` message. (Or used in testing.)
-    pub url: Option<String>,
+    pub eventsub_url: Url,
 }
+
+/// This layered type is [`tungstenite`](https://crates.io/crates/tungstenite)'s WebSocket connection.
+pub type Socket = WebSocket<MaybeTlsStream<TcpStream>>;
 
 pub struct EventResult {
     pub listener: JoinHandle<Result<(), String>>,
     pub session: Arc<Mutex<crate::types::Session>>,
 }
-
-/// This layered type is [`tungstenite`](https://crates.io/crates/tungstenite)'s WebSocket connection.
-pub type Socket = WebSocket<MaybeTlsStream<TcpStream>>;
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(untagged)]
@@ -131,16 +132,23 @@ pub struct SubscriptionPayload {
 #[derive(Deserialize, Serialize, Debug)]
 pub struct NotificationPayload {
     pub subscription: SubscriptionPayload,
+    // This part of the payload varies between all different events Twitch can send notifications
+    // for. Leave implementing parsers for the relevant types to the API user for extensibility, or
+    // continuously maintain types for all events. (For now, the former is chosen.)
     pub event: Value,
 }
 
+/// The `Session` contains the socket connection to Twitch's EventSub WebSocket server, as well as
+/// the session ID — inserted by the `Welcome` message handler, once a `Welcome` message is
+/// received — a vector of message IDs that have already been handled — to avoid double-handling
+/// replayed messages — and the url used to connect to the EventSub server.
 impl Session {
-    pub fn new(socket: Socket, url: Option<String>) -> Session {
+    pub fn new(socket: Socket, url: Url) -> Session {
         Session {
             socket,
             id: String::new(),
-            handled: vec![],
-            url,
+            handled_messsage_ids: vec![],
+            eventsub_url: url,
         }
     }
 

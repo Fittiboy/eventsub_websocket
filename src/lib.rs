@@ -3,10 +3,7 @@
 use std::sync::{mpsc::Sender, Arc, Mutex};
 use std::thread;
 use std::time::Duration;
-pub use tungstenite::{
-    connect,
-    protocol::frame::{coding::CloseCode, CloseFrame},
-};
+pub use tungstenite::protocol::frame::{coding::CloseCode, CloseFrame};
 use url::Url;
 
 use crate::error::*;
@@ -18,7 +15,34 @@ pub mod error;
 pub mod handlers;
 pub mod types;
 
-pub fn listen_loop(
+pub const EVENTSUB_URL: &str = "wss://eventsub-beta.wss.twitch.tv/ws";
+
+/// Creates the loop that handles Twitch's messages as they come in, passing them through to the
+/// caller via the `message_forwarder`. This is a blocking function, which should be called in a
+/// background thread.
+///
+///
+/// ```
+/// use eventsub_websocket::{create_message_processor, get_default_url, get_session};
+/// use eventsub_websocket::types::TwitchMessage;
+/// use std::sync::{mpsc, Arc};
+/// use std::thread;
+///
+/// let (message_forwarder, message_receiver) = mpsc::channel();
+/// let url = get_default_url().unwrap();
+/// let session = get_session(url).unwrap();
+/// let message_processor = thread::spawn(move || {
+///     create_message_processor(
+///         Arc::clone(&session),
+///         &message_forwarder,
+///         false,
+///         false
+///     )
+/// });
+///
+/// assert!(matches!(message_receiver.recv().unwrap(), TwitchMessage::Welcome(_)));
+/// ```
+pub fn create_message_processor(
     eventsub_session: Arc<Mutex<Session>>,
     message_forwarder: &Sender<TwitchMessage>,
     reconnect_to_twitch: bool,
@@ -39,7 +63,7 @@ pub fn listen_loop(
 
         let msg = {
             let session = &mut eventsub_session.lock()?;
-            let reconnect_url = session.url.take();
+            let reconnect_url = session.eventsub_url.clone();
             let socket = &mut session.socket;
             if !socket.can_read() && close_old_connection {
                 break;
@@ -69,7 +93,11 @@ pub fn listen_loop(
             }
         };
 
-        if eventsub_session.lock()?.handled.contains(&msg.id()) {
+        if eventsub_session
+            .lock()?
+            .handled_messsage_ids
+            .contains(&msg.id())
+        {
             println!("Duplicate message: {:#?}", msg);
             continue;
         }
@@ -90,7 +118,7 @@ pub fn listen_loop(
             }
         };
 
-        eventsub_session.lock()?.handled.push(msg.id());
+        eventsub_session.lock()?.handled_messsage_ids.push(msg.id());
         message_forwarder.send(msg)?;
 
         if message_is_welcome && reconnect_to_twitch {
@@ -103,9 +131,13 @@ pub fn listen_loop(
     Ok(())
 }
 
+pub fn get_default_url() -> Result<Url, EventSubErr> {
+    Url::parse(EVENTSUB_URL).map_err(|err| err.into())
+}
+
 fn attempt_reconnection(
     socket: &mut Socket,
-    reconnect_url: Option<String>,
+    reconnect_url: Url,
 ) -> std::result::Result<(), EventSubErr> {
     let mut reconnect_wait_time_seconds = 1;
     loop {
@@ -129,30 +161,24 @@ fn attempt_reconnection(
 }
 
 pub fn event_handler(
-    url: Option<String>,
+    url: Url,
     tx: Sender<TwitchMessage>,
 ) -> std::result::Result<EventResult, EventSubErr> {
     let session = get_session(url)?;
-    let move_sess = Arc::clone(&session);
+    let session_clone = Arc::clone(&session);
     let listener =
         thread::Builder::new()
             .name("listener".into())
             .spawn(move || -> Result<(), String> {
-                listen_loop(move_sess, &tx, false, false)?;
+                create_message_processor(session_clone, &tx, false, false)?;
                 Ok(())
             })?;
     Ok(EventResult { listener, session })
 }
 
-pub fn get_session(url: Option<String>) -> Result<Arc<Mutex<Session>>, EventSubErr> {
-    let to_parse;
-    if let Some(url) = url {
-        to_parse = url;
-    } else {
-        to_parse = "wss://eventsub-beta.wss.twitch.tv/ws".to_string();
-    }
-    let (socket, _) = connect(Url::parse(&to_parse)?)?;
-    Ok(Arc::new(Mutex::new(Session::new(socket, Some(to_parse)))))
+pub fn get_session(url: Url) -> Result<Arc<Mutex<Session>>, EventSubErr> {
+    let (socket, _) = tungstenite::connect(&url)?;
+    Ok(Arc::new(Mutex::new(Session::new(socket, url))))
 }
 
 #[cfg(test)]
@@ -177,7 +203,7 @@ mod tests {
     fn connect_to_mock() {
         let mut handle = start_server(false, 8080);
         thread::sleep(std::time::Duration::from_secs(1));
-        let session = get_session(Some("ws://localhost:8080/eventsub".to_owned())).unwrap();
+        let session = get_session(Url::parse("ws://localhost:8080/eventsub").unwrap()).unwrap();
         session
             .lock()
             .unwrap()
@@ -195,7 +221,7 @@ mod tests {
         let mut handle = start_server(false, 8082);
         thread::sleep(std::time::Duration::from_secs(1));
         let (tx, rx): (Sender<TwitchMessage>, Receiver<TwitchMessage>) = mpsc::channel();
-        let res = event_handler(Some("ws://localhost:8082/eventsub".to_owned()), tx).unwrap();
+        let res = event_handler(Url::parse("ws://localhost:8082/eventsub").unwrap(), tx).unwrap();
         loop {
             let msg: TwitchMessage = rx.recv().map_err(|err| format!("{}", err)).unwrap();
             match msg {
@@ -223,13 +249,13 @@ mod tests {
         thread::sleep(std::time::Duration::from_secs(1));
         let mut welcome_count = 0;
         let (tx, rx): (Sender<TwitchMessage>, Receiver<TwitchMessage>) = mpsc::channel();
-        let session = get_session(Some("ws://localhost:8084/eventsub".to_owned())).unwrap();
+        let session = get_session(Url::parse("ws://localhost:8084/eventsub").unwrap()).unwrap();
         let tx_clone = tx.clone();
         let move_sess = Arc::clone(&session);
         thread::Builder::new()
             .name("listener".into())
             .spawn(move || -> Result<(), String> {
-                listen_loop(move_sess, &tx_clone, false, false)?;
+                create_message_processor(move_sess, &tx_clone, false, false)?;
                 Ok(())
             })
             .unwrap();
