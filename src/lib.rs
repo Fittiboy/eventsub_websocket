@@ -9,12 +9,12 @@ pub use tungstenite::{
 };
 use url::Url;
 
-use crate::handlers::error::*;
+use crate::error::*;
 use crate::types::{EventResult, Session, TwitchMessage};
 
-pub use crate::handlers::error;
 pub use serde_json::from_str as parse_message;
 
+pub mod error;
 pub mod handlers;
 pub mod types;
 

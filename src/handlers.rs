@@ -1,10 +1,7 @@
-use crate::handlers::error::*;
-use crate::listen_loop;
 use crate::types::{Reconnect, Session, TwitchMessage, Welcome};
+use crate::{error::*, listen_loop};
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
-
-pub mod error;
 
 impl TwitchMessage {
     pub fn handle(
