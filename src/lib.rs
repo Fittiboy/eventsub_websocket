@@ -23,6 +23,7 @@ pub const EVENTSUB_URL: &str = "wss://eventsub-beta.wss.twitch.tv/ws";
 ///
 ///
 /// ```
+/// # // TODO: Run test server instead of connecting to Twitch's EventSub server for tests
 /// use eventsub_websocket::{create_message_processor, get_default_url, get_session};
 /// use eventsub_websocket::types::TwitchMessage;
 /// use std::sync::{mpsc, Arc};
